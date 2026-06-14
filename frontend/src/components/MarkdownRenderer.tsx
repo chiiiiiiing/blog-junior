@@ -1,4 +1,4 @@
-import { useMemo, createElement } from "react";
+import { useMemo, createElement, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -29,17 +29,14 @@ function extractText(children: unknown): string {
 }
 
 /** 为 h1/h2/h3 自动生成 id，供 TOC 锚点跳转 */
-function makeHeading(tag: string) {
-  const Heading = ({ children, ...props }: Record<string, unknown>) => {
+function makeHeading(tag: "h1" | "h2" | "h3") {
+  return function Heading({ children, ...props }: { children?: ReactNode; [key: string]: unknown }) {
     const id = slugify(extractText(children));
-    return createElement(tag, { id, ...props }, children);
+    return createElement(tag, { id, ...props }, children as ReactNode);
   };
-  Heading.displayName = `Heading${tag.toUpperCase()}`;
-  return Heading;
 }
 
 export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
-  // 预处理：修复双反斜杠转义（seed 中的 \\ 转为正确的 \）
   const fixedContent = useMemo(() => {
     return content
       .replace(/\\\\/g, "\\")
