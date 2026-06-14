@@ -8,6 +8,15 @@ export interface User {
   createdAt?: string;
 }
 
+export interface Tag {
+  id: number;
+  name: string;
+  slug: string;
+  _count?: {
+    posts: number;
+  };
+}
+
 export interface Post {
   id: number;
   title: string;
@@ -18,6 +27,7 @@ export interface Post {
   updatedAt: string;
   authorId: number;
   author: Pick<User, "id" | "username">;
+  tags?: Tag[];
   _count?: {
     comments: number;
     likes: number;
@@ -60,4 +70,8 @@ export interface LikeResponse {
 export interface LikeStatusResponse {
   liked: boolean;
   likesCount: number;
+}
+
+export interface TagsResponse {
+  tags: Tag[];
 }

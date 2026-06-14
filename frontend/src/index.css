@@ -180,6 +180,12 @@
   }
 }
 
+/* ===== TOC 目录样式 ===== */
+.toc a {
+  text-decoration: none;
+  color: inherit;
+}
+
 /* 滚动条美化（非 layer，保持高优先级） */
 ::-webkit-scrollbar {
   width: 6px;

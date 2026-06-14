@@ -64,44 +64,136 @@ blog-XLab/
 
 ## 2. 核心技术栈
 
-### 后端
+### 2.1 后端技术
+
+#### 运行时与框架
+
+| 技术 | 用途 | 选型理由 |
+|------|------|----------|
+| **Node.js** (≥18) | JavaScript 运行时，基于 V8 引擎 | 前后端统一语言，生态丰富，非阻塞 I/O 适合博客类 IO 密集型场景 |
+| **TypeScript** | 为 JS 添加静态类型系统 | 编译期发现类型错误，智能代码补全，提升大型项目可维护性 |
+| **Express** | 轻量级 HTTP 框架 | 最成熟的 Node.js 框架，中间件生态完善，学习成本低，灵活性高 |
+
+#### 数据库与 ORM
+
+| 技术 | 用途 | 选型理由 |
+|------|------|----------|
+| **SQLite** | 嵌入式关系型数据库 | **零配置零依赖**，数据就是一个单文件 `dev.db`，备份只需复制文件；轻量级博客场景性能完全够用（单机 QPS 可达数万） |
+| **Prisma** | 下一代 Node.js ORM | 类型安全的数据库操作，Schema-first 定义数据模型，自动生成迁移脚本，提供 GUI 管理工具 Prisma Studio |
+
+#### 认证与安全
+
+| 技术 | 用途 | 选型理由 |
+|------|------|----------|
+| **JWT** (jsonwebtoken) | 无状态用户认证 | 服务端不存 Session，水平扩展友好；Token 内包含用户 ID + 角色，中间件直接解析无需查库 |
+| **bcryptjs** | 密码哈希（加盐 + 多轮散列） | 纯 JS 实现无需编译原生模块，跨平台兼容性好；10 轮 salt 足够防御彩虹表攻击 |
+| **Zod** | 请求体校验 | TypeScript-first 的 Schema 校验库，定义一次 Schema 自动推导 TS 类型，避免重复定义 |
+
+### 2.2 前端技术
+
+#### 核心框架与构建
+
+| 技术 | 用途 | 选型理由 |
+|------|------|----------|
+| **Vite** | 构建工具与开发服务器 | 基于 ESM 原生模块，冷启动 < 1 秒，HMR 热更新极快；Rollup 生产打包，产物优化到位 |
+| **React 19** | UI 组件化框架 | 函数组件 + Hooks 心智模型简洁，并发特性（useTransition 等）提升交互体验，生态最庞大 |
+| **TypeScript** | 类型安全 | 组件 Props 类型校验，API 响应类型定义，避免运行时 undefined 错误 |
+| **React Router v7** | 客户端路由 | 声明式路由配置，支持嵌套路由、懒加载、路由守卫 |
+
+#### 样式与 UI
+
+| 技术 | 用途 | 选型理由 |
+|------|------|----------|
+| **Tailwind CSS v4** | 原子化 CSS 框架 | 直接在 HTML 中写样式，无需命名 class、无需切换文件；构建时摇树，生产包极小；v4 使用 CSS-first 配置，性能更好 |
+
+#### 数据请求
+
+| 技术 | 用途 | 选型理由 |
+|------|------|----------|
+| **Axios** | HTTP 客户端 | 请求/响应拦截器自动附加 JWT Token、统一处理 401；比原生 fetch 更简洁的错误处理和超时控制 |
+
+#### Markdown 渲染管线
+
+整个 Markdown 渲染使用 **unified 生态**的管道式处理，每一步职责单一：
+
+```
+Markdown 原始文本
+  → remark.parse (解析为 AST)
+  → remark-gfm (GFM 扩展：表格、删除线、任务列表)
+  → remark-math (识别 $...$ 和 $$...$$ 数学公式)
+  → remark-rehype (转换 MDAST → HAST，即 HTML AST)
+  → rehype-highlight (代码块语法高亮，基于 highlight.js)
+  → rehype-katex (数学公式渲染为 HTML + CSS)
+  → rehype-stringify (序列化为 HTML 字符串)
+  → React 组件渲染
+```
 
 | 技术 | 用途 |
 |------|------|
-| **Node.js + TypeScript** | 运行环境与类型安全 |
-| **Express** | HTTP 框架，路由与中间件 |
-| **Prisma** | ORM，类型安全的数据库操作 |
-| **SQLite** | 轻量级本地数据库（零配置） |
-| **JWT (jsonwebtoken)** | 无状态用户认证 |
-| **bcryptjs** | 密码哈希 |
-| **Zod** | 请求体校验 |
+| **react-markdown** | 将 Markdown 渲染为 React 组件，替代 dangerouslySetInnerHTML，安全且可自定义 |
+| **remark-gfm** | GitHub Flavored Markdown 扩展 —— 表格、删除线、自动链接、任务列表 |
+| **remark-math** | 解析 Markdown 中的 LaTeX 数学公式语法（`$inline$` 和 `$$block$$`） |
+| **rehype-highlight** | 基于 highlight.js 的代码语法高亮，支持 190+ 种语言 |
+| **rehype-katex** | 将 LaTeX 公式渲染为 HTML + CSS，比 MathJax 快 5–10 倍 |
+| **KaTeX** | 数学公式排版引擎，无依赖纯静态渲染，支持大部分 LaTeX 语法 |
 
-### 前端
-
-| 技术 | 用途 |
-|------|------|
-| **Vite** | 构建工具，极速 HMR |
-| **React 19 + TypeScript** | UI 框架 |
-| **React Router v7** | 客户端路由 |
-| **Tailwind CSS v4** | 原子化 CSS，极简风格 |
-| **Axios** | HTTP 请求 + 拦截器 |
-| **react-markdown** | Markdown → React 组件 |
-| **remark-gfm** | GFM 扩展（表格/删除线等） |
-| **remark-math** | Markdown 数学公式语法解析 |
-| **rehype-highlight** | 代码语法高亮（highlight.js） |
-| **rehype-katex** | LaTeX 数学公式渲染 |
-| **KaTeX** | 快速数学公式排版 |
-
-### 数据库模型关系
+### 2.3 数据库模型关系
 
 ```
-User (1) ─────< (N) Post
-User (1) ─────< (N) Comment
-User (1) ─────< (N) Like
-Post  (1) ─────< (N) Comment  (级联删除)
-Post  (1) ─────< (N) Like     (级联删除)
-Like  [userId, postId] 联合唯一索引
+User (1) ─────< (N) Post        # 一个用户写多篇文章
+User (1) ─────< (N) Comment     # 一个用户发表多条评论
+User (1) ─────< (N) Like        # 一个用户点赞多篇文章
+Post  (1) ─────< (N) Comment    # 一篇文章有多条评论 (级联删除)
+Post  (1) ─────< (N) Like       # 一篇文章有多个点赞 (级联删除)
+Like  [userId, postId] 联合唯一索引  # 同一用户对同一文章只能点赞一次
 ```
+
+#### 表结构速览
+
+**User（用户表）**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Int (自增) | 主键 |
+| username | String (唯一) | 用户名 |
+| email | String (唯一) | 邮箱，登录凭据 |
+| passwordHash | String? | bcrypt 密码哈希（GitHub 用户可为空） |
+| role | String | `ADMIN` 或 `USER`，默认 USER |
+| githubId | String? (唯一) | GitHub OAuth 绑定的 ID |
+| avatar | String? | 头像 URL |
+| createdAt | DateTime | 注册时间 |
+
+**Post（文章表）**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Int (自增) | 主键 |
+| title | String | 文章标题 |
+| slug | String (唯一) | URL 友好的英文标识，用于路由 |
+| content | String | Markdown 正文 |
+| published | Boolean | 是否发布（false = 草稿） |
+| authorId | Int (外键) | 关联 User.id |
+| createdAt / updatedAt | DateTime | 创建/更新时间 |
+
+**Comment（评论表）**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Int (自增) | 主键 |
+| content | String | 评论内容 |
+| postId | Int (外键) | 关联 Post.id（级联删除） |
+| authorId | Int (外键) | 关联 User.id |
+| createdAt | DateTime | 评论时间 |
+
+**Like（点赞表）**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Int (自增) | 主键 |
+| postId | Int (外键) | 关联 Post.id（级联删除） |
+| userId | Int (外键) | 关联 User.id |
+| createdAt | DateTime | 点赞时间 |
+| @@unique([userId, postId]) | 联合唯一 | 数据库层面防重复点赞 |
 
 ---
 
@@ -155,23 +247,141 @@ npm run dev
 |------|------|
 | `npm run dev` | 启动后端 / 前端开发服务器 |
 | `npm run build` | 生产环境构建 |
-| `npx prisma studio` | 打开 Prisma 数据管理 GUI |
+| `npx prisma studio` | 打开 Prisma 数据管理 GUI（可视化查看/编辑数据库） |
 | `npm run db:seed` | 重新注入种子数据 |
 | `npm run db:push` | 同步 Schema 到数据库（跳过迁移） |
+
+### 3.4 本地数据库查看
+
+数据库文件位于 `backend/prisma/dev.db`（SQLite 单文件），有三种方式查看：
+
+#### 方式一：Prisma Studio（推荐，图形界面）
+
+```bash
+cd backend
+npx prisma studio
+```
+
+浏览器会自动打开 `http://localhost:5555`，可以**可视化**浏览和编辑所有表数据（User、Post、Comment、Like）。
+
+#### 方式二：命令行快速查询
+
+```bash
+cd backend
+npx prisma db execute --stdin
+```
+
+然后输入 SQL 查询，例如：
+
+```sql
+-- 查看所有用户
+SELECT id, username, email, role FROM User;
+
+-- 查看所有文章
+SELECT id, title, slug, published FROM Post;
+```
+
+按 `Ctrl+D` 执行。
+
+#### 方式三：sqlite3 命令行（需单独安装）
+
+```bash
+# 安装 sqlite3（如果没装）
+# Windows: choco install sqlite / winget install SQLite.SQLite
+# Mac: brew install sqlite
+# Linux: sudo apt-get install sqlite3
+
+# 连接数据库
+sqlite3 backend/prisma/dev.db
+
+# 常用命令
+.tables              # 列出所有表
+.schema User         # 查看 User 表结构
+SELECT * FROM User;  # 查询所有用户
+.quit                # 退出
+```
+
+### 3.5 常见启动问题
+
+#### ❓ 登录失败（管理员账户登不进去）
+
+**必须确保后端已启动**，后端不运行则 API 无法响应。
+
+检查后端是否在运行：
+
+```bash
+# Windows: 查看端口 3001 是否被占用
+netstat -ano | findstr :3001
+
+# Mac / Linux
+lsof -i :3001
+```
+
+如果没有输出，说明后端未启动，执行：
+
+```bash
+cd backend
+npm run dev
+```
+
+> ⚠️ **注意**：前端和后端需要**同时运行**（开两个终端），访问 `http://localhost:5173` 而非直接打开 `index.html`。
+
+#### ❓ 页面空白 / API 请求失败
+
+1. 确认后端终端显示 `Server running on http://localhost:3001`
+2. 确认前端终端显示 `http://localhost:5173`
+3. 打开浏览器开发者工具（F12）→ Network 面板，查看 `/api/` 请求是否返回错误
+
+#### ❓ 数据库文件损坏或数据异常
+
+重新初始化数据库：
+
+```bash
+cd backend
+rm -f prisma/dev.db              # 删除旧数据库文件
+npx prisma db push               # 重建表结构
+npm run db:seed                  # 重新注入种子数据
+```
+
+#### ❓ 端口被占用
+
+```bash
+# Windows: 查看占用 3001 端口的进程
+netstat -ano | findstr :3001
+# 记下 PID，在任务管理器结束进程
+
+# Mac / Linux
+lsof -i :3001
+kill -9 <PID>
+```
+
+### 3.6 自定义友链
+
+友链配置文件位于 `frontend/src/components/Blogroll.tsx`，编辑 `LINKS` 数组即可增删改链接：
+
+```tsx
+const LINKS = [
+  { name: "React", url: "https://react.dev", desc: "用于构建用户界面的 JavaScript 库" },
+  // 添加友链示例：
+  // { name: "显示名称", url: "https://example.com", desc: "一句话描述" },
+];
+```
+
+修改后刷新页面即可看到效果，无需重启。
 
 ---
 
 ## 4. 部署到公有网络（⭐ 核心章节）
 
-下面提供**五种**部署方案，按难度从低到高排列。如果你是第一次部署，建议从**方案 D（宝塔面板）** 或 **方案 A（云服务器）** 开始。
+下面介绍云服务器（VPS）手动部署方式。
 
 ### 📋 部署前准备
 
-无论选哪种方案，你都需要准备两样东西：
+你需要准备以下两样东西：
 
 | 必需品 | 说明 | 参考花费 |
 |--------|------|----------|
-| **一台服务器** | 可以是云服务器（VPS）、家里的电脑、树莓派，或者 Serverless 平台 | ¥30–100/月（VPS），或免费（Serverless） |
+| **一台云服务器** | 云服务器（VPS），如阿里云/腾讯云/AWS 等 | ¥30–100/月 |
 | **一个域名**（推荐）| 让用户通过 `blog.xxx.com` 访问。国内域名需备案 | ¥30–60/年 |
 
 **推荐的云服务器购买渠道：**
@@ -180,11 +390,11 @@ npm run dev
 - 海外：AWS Lightsail / Vultr / DigitalOcean（$5–6/月）
 - 免费：Oracle Cloud Always Free（永久免费 VPS，4核 24G RAM）
 
-> 💡 **关于备案**：如果你使用国内服务器 + 国内域名，根据法规需要做 ICP 备案（约 15-20 个工作日）。不想备案可以选择**香港/海外服务器**，或**方案 C / E（Serverless）**。
+> 💡 **关于备案**：如果你使用国内服务器 + 国内域名，根据法规需要做 ICP 备案（约 15-20 个工作日）。不想备案可以选择**香港/海外服务器**。
 
 ---
 
-### 方案 A：云服务器（VPS）手动部署 ⭐⭐⭐⭐⭐
+### 云服务器（VPS）手动部署
 
 这是最经典、最灵活的方案。适合任何云服务器（阿里云/腾讯云/AWS/任意 VPS）。
 
@@ -398,396 +608,7 @@ curl http://localhost/api/health
 
 ---
 
-### 方案 B：Docker Compose 一键部署 ⭐⭐⭐⭐
-
-如果你熟悉 Docker，这是最干净的方式。所有依赖打包在容器内，不污染宿主机。
-
-#### B.1 在服务器上安装 Docker
-
-```bash
-# 官方一键安装脚本
-curl -fsSL https://get.docker.com | sudo bash
-
-# 将当前用户加入 docker 组（免 sudo）
-sudo usermod -aG docker $USER
-newgrp docker
-
-# 验证
-docker --version
-docker compose version
-```
-
-#### B.2 创建后端 Dockerfile
-
-在项目 `backend/` 目录下新建 `Dockerfile`：
-
-```dockerfile
-FROM node:20-alpine
-WORKDIR /app
-
-# 安装依赖
-COPY package*.json ./
-RUN npm ci
-
-# 复制源码
-COPY . .
-
-# 生成 Prisma Client + 编译 TypeScript
-RUN npx prisma generate
-RUN npm run build
-
-EXPOSE 3001
-
-# 启动时先同步数据库，再启动服务
-CMD sh -c "npx prisma db push && node dist/index.js"
-```
-
-#### B.3 创建前端 Dockerfile
-
-在项目 `frontend/` 目录下新建 `Dockerfile`：
-
-```dockerfile
-# ===== 构建阶段 =====
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-# ===== 运行阶段 =====
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Nginx 配置文件
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
-```
-
-#### B.4 创建前端 Nginx 配置
-
-在 `frontend/` 目录下新建 `nginx.conf`：
-
-```nginx
-server {
-    listen 80;
-    server_name _;
-
-    root /usr/share/nginx/html;
-    index index.html;
-
-    gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript image/svg+xml;
-    gzip_min_length 1000;
-
-    location /assets/ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    location /api/ {
-        proxy_pass http://backend:3001;    # 注意：这里是 Docker 服务名
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        client_max_body_size 10m;
-    }
-}
-```
-
-#### B.5 编写 docker-compose.yml
-
-在项目根目录创建 `docker-compose.yml`：
-
-```yaml
-services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: blog-xlab-api
-    restart: always
-    environment:
-      - PORT=3001
-      - JWT_SECRET=请换成你自己的随机字符串至少32位
-    volumes:
-      # 持久化 SQLite 数据库，容器删了数据还在
-      - blog-data:/app/prisma
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: blog-xlab-web
-    restart: always
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-
-volumes:
-  blog-data:
-```
-
-#### B.6 启动
-
-```bash
-# 在项目根目录执行
-docker compose up -d --build
-
-# 查看运行状态
-docker compose ps
-
-# 查看日志
-docker compose logs -f
-```
-
-#### B.7 配置 HTTPS（Certbot + Nginx 宿主机方案）
-
-Docker 环境下 HTTPS 有两种做法，推荐在宿主机上跑 Nginx + Certbot 然后反代到 Docker 容器的 80 端口，步骤同**方案 A 的 A.7 和 A.9**，只是 `proxy_pass` 的目标换成 `http://127.0.0.1:80`。
-
----
-
-### 方案 C：Serverless 零服务器部署（省钱方案）⭐⭐⭐
-
-适合不想花钱买服务器的场景。核心思路：前端放 Vercel/Netlify，后端放 Railway/Render。
-
-#### C.1 后端部署到 Railway
-
-1. 把 `backend/` 推到一个 GitHub 仓库
-2. 注册 [Railway](https://railway.app)，用 GitHub 登录
-3. 点击 **New Project** → **Deploy from GitHub repo** → 选择你的仓库
-4. Railway 自动检测到 Node.js 项目，但需要手动设置：
-   - **Root Directory**: `backend`
-   - **Build Command**: `npm install && npx prisma generate && npm run build`
-   - **Start Command**: `npx prisma db push && node dist/index.js`
-5. 在 **Variables** 中添加环境变量：
-   - `JWT_SECRET` = 随机生成一个 32 位字符串
-   - `PORT` = `3001`
-6. 因为 Railway 的容器是无状态的，SQLite 数据库文件会在每次部署后丢失。你需要改用 **Turso**（免费 SQLite 云服务）或使用 Railway 的 Volume 功能（付费）来持久化数据。
-
-#### C.2 前端部署到 Vercel
-
-1. 把整个项目推到一个 GitHub 仓库
-2. 注册 [Vercel](https://vercel.com)，用 GitHub 登录
-3. 点击 **Add New Project** → 选择你的仓库
-4. 配置：
-   - **Root Directory**: `frontend`
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-5. 部署完成后，在 Vercel 项目设置中添加 Rewrite 规则：
-
-```json
-{
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://你的Railway后端地址/api/:path*"
-    }
-  ]
-}
-```
-
-这样前端的 `/api/*` 请求会被 Vercel 转发到 Railway 后端，无需修改前端代码。
-
----
-
-### 方案 D：宝塔面板（⭐ 新手首选，可视化操作）
-
-如果你不熟悉 Linux 命令行，**宝塔面板**提供全 Web 界面的服务器管理。
-
-#### D.1 安装宝塔面板
-
-服务器重装为干净系统后，SSH 登录执行：
-
-```bash
-# Ubuntu / Debian
-wget -O install.sh https://download.bt.cn/install/install-ubuntu_6.0.sh
-sudo bash install.sh
-
-# CentOS / Rocky Linux
-wget -O install.sh https://download.bt.cn/install/install_6.0.sh
-sudo bash install.sh
-```
-
-安装完成后终端会输出面板地址、用户名和密码：
-
-```
-外网面板地址: http://你的IP:8888/xxxxxxxx
-username: xxxxxxxx
-password: xxxxxxxx
-```
-
-#### D.2 安装运行环境
-
-登录宝塔面板后：
-
-1. 进入 **软件商店**
-2. 一键安装：
-   - **Nginx**（最新稳定版）
-   - **Node.js 版本管理器**（选 v20.x）
-   - **PM2 管理器**
-
-#### D.3 部署后端
-
-1. 进入 **文件** → 在 `/www/wwwroot/` 下上传或创建 `blog-xlab` 目录
-2. 把整个项目上传到 `/www/wwwroot/blog-xlab/`
-3. 打开宝塔的 **终端** 功能，执行：
-
-```bash
-cd /www/wwwroot/blog-xlab/backend
-npm install
-npx prisma generate
-npx prisma db push
-npm run db:seed    # 可选：注入示例数据
-npm run build
-```
-
-4. 进入 **网站** → **Node 项目** → **添加 Node 项目**
-5. 填写：
-   - 项目目录：`/www/wwwroot/blog-xlab/backend`
-   - 启动文件：`dist/index.js`
-   - 项目名称：`blog-xlab-api`
-   - 运行端口：`3001`
-6. 点击提交，PM2 会自动启动后端。
-
-#### D.4 部署前端 + 配置 Nginx 反代
-
-1. 构建前端：
-
-```bash
-cd /www/wwwroot/blog-xlab/frontend
-npm install
-npm run build
-```
-
-2. 进入 **网站** → **添加站点**
-3. 填写你的域名，根目录选 `/www/wwwroot/blog-xlab/frontend/dist`
-4. 点击站点右侧 **设置** → **配置文件**，在 `server` 块中加入：
-
-```nginx
-# SPA 路由回退
-location / {
-    try_files $uri $uri/ /index.html;
-}
-
-# 静态资源缓存
-location /assets/ {
-    expires 1y;
-    add_header Cache-Control "public, immutable";
-}
-
-# API 反代到后端
-location /api/ {
-    proxy_pass http://127.0.0.1:3001;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    client_max_body_size 10m;
-}
-```
-
-保存后宝塔会自动重载 Nginx。
-
-#### D.5 免费 SSL 证书
-
-1. 点击站点 → **SSL** → **Let's Encrypt**
-2. 勾选域名 → 点击 **申请**
-3. 勾选 **强制 HTTPS** → 保存
-
-宝塔会自动处理证书续期。
-
----
-
-### 方案 E：Cloudflare Tunnel（无需公网 IP，零成本）⭐⭐⭐
-
-如果你没有云服务器，**可以用家里电脑或树莓派**来部署，通过 Cloudflare Tunnel 让外网访问。完全免费，自带 HTTPS。
-
-#### E.1 准备工作
-
-1. 注册 [Cloudflare](https://cloudflare.com) 账号
-2. 把你的域名的 DNS 托管到 Cloudflare（免费）
-3. 确保本地电脑/树莓派已按**方案 A** 的步骤完成构建，后端在 3001 端口，Nginx 在 80 端口
-
-#### E.2 安装 cloudflared
-
-```bash
-# Linux (x86_64)
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
-chmod +x cloudflared
-sudo mv cloudflared /usr/local/bin/
-
-# Mac
-brew install cloudflared
-
-# Windows (PowerShell 管理员)
-winget install Cloudflare.cloudflared
-```
-
-#### E.3 创建隧道
-
-```bash
-# 登录 Cloudflare（会打开浏览器授权）
-cloudflared tunnel login
-
-# 创建一条隧道
-cloudflared tunnel create blog-xlab
-
-# 这时会输出隧道 ID 和凭证文件路径，记下来
-```
-
-#### E.4 编写隧道配置
-
-创建 `~/.cloudflared/config.yml`：
-
-```yaml
-tunnel: <你创建的隧道ID>
-credentials-file: /root/.cloudflared/<隧道ID>.json
-
-ingress:
-  # 前端（通过 Nginx 80 端口）
-  - hostname: blog.你的域名.com
-    service: http://localhost:80
-
-  # 后端（直接走 3001）
-  - hostname: api.你的域名.com
-    service: http://localhost:3001
-
-  # 未匹配的请求返回 404
-  - service: http_status:404
-```
-
-#### E.5 配置 DNS 并启动
-
-1. 在 Cloudflare 控制台 → DNS → 添加两条 CNAME 记录：
-   - `blog` → `<隧道ID>.cfargotunnel.com`（开启橙色云朵代理）
-   - `api` → `<隧道ID>.cfargotunnel.com`（开启橙色云朵代理）
-
-2. 启动隧道：
-
-```bash
-# 前台运行（测试用）
-cloudflared tunnel run blog-xlab
-
-# 后台运行 + 开机自启
-sudo cloudflared service install
-sudo systemctl start cloudflared
-sudo systemctl enable cloudflared
-```
-
-访问 `https://blog.你的域名.com`，Cloudflare 会自动提供 HTTPS 证书，且隐藏你家里的真实 IP。
-
----
-
-### 🔧 运维锦囊（所有方案通用）
+### 🔧 运维锦囊
 
 #### 数据库备份（极其重要！）
 
@@ -810,47 +631,65 @@ crontab -e
 
 #### 更新部署流程
 
-当你修改了代码后，按以下步骤更新线上环境：
+每次修改代码后，按以下步骤更新线上环境。
+
+**本地 → 服务器同步代码：**
 
 ```bash
-# === 方案 A / D（手动部署）===
-# 1. 拉取最新代码
+# 方式一：通过 Git 同步（推荐）
+# 先在本地 push 到 GitHub，然后 SSH 到服务器拉取
+
+# 方式二：scp 直接上传修改的文件
+scp -r ./backend/src root@你的IP:/home/deploy/blog-XLab/backend/
+scp -r ./frontend/src root@你的IP:/home/deploy/blog-XLab/frontend/
+```
+
+**服务器端更新构建（SSH 到服务器后执行）：**
+
+```bash
+# === 完整更新流程 ===
+
+# 1. 拉取最新代码（如果用 Git）
 cd /home/deploy/blog-XLab
 git pull
 
 # 2. 重新构建后端
 cd backend
-npm install               # 如果依赖有变化
-npx prisma generate       # 如果 Schema 有变化
-npx prisma db push        # 如果 Schema 有变化
+npm install               # 如果 package.json 有变化
+npx prisma generate       # 如果 prisma/schema.prisma 有变化
+npx prisma db push        # 如果 Schema 有变化（不会丢数据）
 npm run build
-
-# 3. 重启后端
 pm2 restart blog-xlab-api
 
-# 4. 重新构建前端
+# 3. 重新构建前端
 cd ../frontend
-npm install
+npm install               # 如果 package.json 有变化
 npm run build
+# Nginx 不需要重启（静态文件直接覆盖了 dist 目录）
 
-# 5. Nginx 不需要重启（静态文件直接覆盖了 dist 目录）
-
-# === 方案 B（Docker）===
-git pull
-docker compose up -d --build
-
-# === 方案 C（Serverless）===
-git push   # 推送到 GitHub，Vercel / Railway 自动部署
+# 4. 验证
+curl http://localhost:3001/api/health
+# → {"status":"ok","timestamp":"..."}
 ```
+
+**常用更新场景速查：**
+
+| 改动内容 | 需要执行的命令 |
+|---------|---------------|
+| 只改了前端页面/样式 | `cd frontend && npm run build` |
+| 只改后端路由/逻辑 | `cd backend && npm run build && pm2 restart blog-xlab-api` |
+| 改了数据库 Schema | `cd backend && npx prisma generate && npx prisma db push && npm run build && pm2 restart blog-xlab-api` |
+| 新增了 npm 依赖 | 在对应目录执行 `npm install` 后再 build |
+
+> 💡 **提示**：可以将上面的更新流程写成一个 `update.sh` 脚本放在 `/home/deploy/` 下，以后每次更新只需执行 `bash /home/deploy/update.sh`。
+
+
 
 #### 查看日志
 
 ```bash
 # 后端日志
 pm2 logs blog-xlab-api --lines 50
-
-# Docker 日志
-docker compose logs -f backend
 
 # Nginx 访问日志
 tail -f /var/log/nginx/access.log

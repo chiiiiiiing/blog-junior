@@ -19,7 +19,7 @@ async function main() {
     data: {
       username: "admin",
       passwordHash: adminHash,
-      email: "admin@ching-blog.local",
+      email: "admin@blog-xlab.com",
       role: "ADMIN",
     },
   });
@@ -28,7 +28,7 @@ async function main() {
     data: {
       username: "zhangsan",
       passwordHash: user1Hash,
-      email: "zhangsan@ching-blog.local",
+      email: "zhangsan@blog-xlab.com",
       role: "USER",
     },
   });
@@ -37,7 +37,7 @@ async function main() {
     data: {
       username: "lisi",
       passwordHash: user2Hash,
-      email: "lisi@ching-blog.local",
+      email: "lisi@blog-xlab.com",
       role: "USER",
     },
   });

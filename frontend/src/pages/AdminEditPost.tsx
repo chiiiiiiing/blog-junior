@@ -30,6 +30,7 @@ export default function AdminEditPost() {
   const [slug, setSlug] = useState("");
   const [content, setContent] = useState("");
   const [published, setPublished] = useState(false);
+  const [tagInput, setTagInput] = useState("");  // 逗号分隔的标签
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [pageLoading, setPageLoading] = useState(!isNew);
@@ -56,6 +57,9 @@ export default function AdminEditPost() {
         setSlug(p.slug);
         setContent(p.content);
         setPublished(p.published);
+        if (p.tags && p.tags.length > 0) {
+          setTagInput(p.tags.map((t: { name: string }) => t.name).join(", "));
+        }
       })
       .catch(() => setError("加载文章失败"))
       .finally(() => setPageLoading(false));
@@ -76,11 +80,17 @@ export default function AdminEditPost() {
     setError("");
     setSaving(true);
 
+    const tagNames = tagInput
+      .split(/[,，]/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+
     const data = {
       title,
       slug,
       content,
       published: status === "publish",
+      tags: tagNames,
     };
 
     try {
@@ -253,6 +263,14 @@ export default function AdminEditPost() {
             onChange={(e) => setSlug(e.target.value)}
             placeholder="article-slug"
             className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-mono outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+          />
+
+          {/* 标签输入 */}
+          <input
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            placeholder="标签（逗号分隔，如：React, TypeScript, CSS）"
+            className="px-4 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
           />
 
           {/* ===== 拖拽上传 .md 文件 ===== */}

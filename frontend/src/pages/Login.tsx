@@ -94,10 +94,6 @@ export default function Login() {
           <Link to="/register" className="text-blue-600 hover:underline font-medium">注册</Link>
         </p>
 
-        <div className="mt-6 p-3 bg-gray-50 rounded-lg text-xs text-gray-400 text-center">
-          <p>测试管理员：admin@blog-xlab.com / admin123</p>
-          <p>测试用户：zhangsan@blog-xlab.com / user123</p>
-        </div>
       </div>
     </div>
   );

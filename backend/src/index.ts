@@ -5,6 +5,7 @@ import githubAuthRoutes from "./routes/github-auth";
 import postRoutes from "./routes/posts";
 import commentRoutes from "./routes/comments";
 import likeRoutes from "./routes/likes";
+import tagRoutes from "./routes/tags";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -24,6 +25,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/auth", githubAuthRoutes);
 app.use("/api/posts", postRoutes);
+app.use("/api/tags", tagRoutes);
 app.use("/api", commentRoutes);
 app.use("/api", likeRoutes);
 

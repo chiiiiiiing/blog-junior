@@ -30,18 +30,34 @@ const postSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "Slug 只能包含小写字母、数字和连字符"),
   content: z.string().min(1, "内容不能为空"),
   published: z.boolean().optional().default(false),
+  tags: z.array(z.string()).optional(),  // 标签名数组
 });
 
 const postUpdateSchema = postSchema.partial();
 
-// GET /api/posts — 文章列表（支持分页）
+// GET /api/posts — 文章列表（支持分页、搜索、标签过滤）
 router.get("/", async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const pageSize = Math.min(50, Math.max(1, parseInt(req.query.pageSize as string) || 10));
     const skip = (page - 1) * pageSize;
+    const search = req.query.search as string | undefined;
+    const tag = req.query.tag as string | undefined;
 
-    const where = { published: true };
+    const where: any = { published: true };
+
+    // 搜索：匹配标题或内容
+    if (search && search.trim()) {
+      where.OR = [
+        { title: { contains: search.trim() } },
+        { content: { contains: search.trim() } },
+      ];
+    }
+
+    // 标签过滤
+    if (tag && tag.trim()) {
+      where.tags = { some: { slug: tag.trim() } };
+    }
 
     const [posts, total] = await Promise.all([
       prisma.post.findMany({
@@ -53,6 +69,7 @@ router.get("/", async (req: Request, res: Response) => {
           author: {
             select: { id: true, username: true },
           },
+          tags: true,
           _count: {
             select: { comments: true, likes: true },
           },
@@ -85,6 +102,7 @@ router.get("/admin/all", requireAuth, requireAdmin, async (_req: Request, res: R
         author: {
           select: { id: true, username: true },
         },
+        tags: true,
         _count: {
           select: { comments: true, likes: true },
         },
@@ -110,6 +128,7 @@ router.get("/:slugOrId", async (req: Request, res: Response) => {
         author: {
           select: { id: true, username: true },
         },
+        tags: true,
         comments: {
           orderBy: { createdAt: "desc" },
           include: {
@@ -136,25 +155,50 @@ router.get("/:slugOrId", async (req: Request, res: Response) => {
   }
 });
 
+/** 处理标签：已存在的直接 connect，不存在的先创建 */
+async function resolveTags(tagNames: string[]) {
+  const tags = [];
+  for (const name of tagNames) {
+    const trimmed = name.trim();
+    if (!trimmed) continue;
+    const slug = trimmed
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, "")
+      .replace(/[\s_]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    let tag = await prisma.tag.findUnique({ where: { slug } });
+    if (!tag) {
+      tag = await prisma.tag.create({ data: { name: trimmed, slug } });
+    }
+    tags.push({ id: tag.id });
+  }
+  return tags;
+}
+
 // POST /api/posts — 创建文章（仅管理员）
 router.post("/", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
-    const body = postSchema.parse(req.body);
+    const { tags: tagNames, ...bodyData } = postSchema.parse(req.body);
 
     // 检查 slug 唯一性
-    const existing = await prisma.post.findUnique({ where: { slug: body.slug } });
+    const existing = await prisma.post.findUnique({ where: { slug: bodyData.slug } });
     if (existing) {
       res.status(409).json({ error: "该 Slug 已被使用" });
       return;
     }
 
+    const tagConnections = tagNames ? await resolveTags(tagNames) : [];
+
     const post = await prisma.post.create({
       data: {
-        ...body,
+        ...bodyData,
         authorId: req.user!.userId,
+        tags: { connect: tagConnections },
       },
       include: {
         author: { select: { id: true, username: true } },
+        tags: true,
       },
     });
 
@@ -220,12 +264,12 @@ router.put("/:id", requireAuth, requireAdmin, async (req: Request, res: Response
       return;
     }
 
-    const body = postUpdateSchema.parse(req.body);
+    const { tags: tagNames, ...bodyData } = postUpdateSchema.parse(req.body);
 
     // 如果更新 slug，检查唯一性
-    if (body.slug) {
+    if (bodyData.slug) {
       const existing = await prisma.post.findFirst({
-        where: { slug: body.slug, NOT: { id } },
+        where: { slug: bodyData.slug, NOT: { id } },
       });
       if (existing) {
         res.status(409).json({ error: "该 Slug 已被使用" });
@@ -233,11 +277,19 @@ router.put("/:id", requireAuth, requireAdmin, async (req: Request, res: Response
       }
     }
 
+    // 如果传了 tags，则完全替换（先 disconnect 全部，再 connect 新的）
+    const updateData: any = { ...bodyData };
+    if (tagNames !== undefined) {
+      const tagConnections = await resolveTags(tagNames);
+      updateData.tags = { set: [], connect: tagConnections };
+    }
+
     const post = await prisma.post.update({
       where: { id },
-      data: body,
+      data: updateData,
       include: {
         author: { select: { id: true, username: true } },
+        tags: true,
       },
     });
 

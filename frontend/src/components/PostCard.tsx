@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import type { Post } from "../types";
+import TagBadge from "./TagBadge";
 
 interface PostCardProps {
   post: Post;
@@ -24,6 +25,15 @@ export default function PostCard({ post }: PostCardProps) {
         <h2 className="text-xl font-semibold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors leading-snug">
           {post.title}
         </h2>
+
+        {/* 标签 */}
+        {post.tags && post.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {post.tags.map((tag) => (
+              <TagBadge key={tag.id} tag={tag} />
+            ))}
+          </div>
+        )}
 
         <div className="flex items-center gap-4 text-sm text-gray-400">
           <span className="flex items-center gap-1">
