@@ -1,3 +1,9 @@
+import dotenv from "dotenv";
+import path from "path";
+
+// 加载 .env 文件（PM2 工作目录可能不是项目目录，需显式指定路径）
+dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
+
 import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/auth";
