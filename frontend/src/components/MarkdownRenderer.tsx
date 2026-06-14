@@ -1,4 +1,4 @@
-import { useMemo, type ComponentPropsWithoutRef } from "react";
+import { useMemo, createElement } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -18,18 +18,6 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** 为 h1/h2/h3 自动生成 id，供 TOC 锚点跳转 */
-function createHeading(level: number) {
-  const tag = `h${level}` as keyof JSX.IntrinsicElements;
-  return function Heading(props: ComponentPropsWithoutRef<"h1" | "h2" | "h3">) {
-    const text = typeof props.children === "string" ? props.children : String(props.children ?? "");
-    // @ts-ignore extract text from React children
-    const id = slugify(extractText(props.children));
-    const H = tag;
-    return <H id={id} {...props} />;
-  };
-}
-
 function extractText(children: unknown): string {
   if (typeof children === "string") return children;
   if (typeof children === "number") return String(children);
@@ -38,6 +26,16 @@ function extractText(children: unknown): string {
     return extractText((children as { props: { children?: unknown } }).props.children);
   }
   return "";
+}
+
+/** 为 h1/h2/h3 自动生成 id，供 TOC 锚点跳转 */
+function makeHeading(tag: string) {
+  const Heading = ({ children, ...props }: Record<string, unknown>) => {
+    const id = slugify(extractText(children));
+    return createElement(tag, { id, ...props }, children);
+  };
+  Heading.displayName = `Heading${tag.toUpperCase()}`;
+  return Heading;
 }
 
 export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
@@ -53,9 +51,9 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
   }, [content]);
 
   const components = useMemo(() => ({
-    h1: createHeading(1),
-    h2: createHeading(2),
-    h3: createHeading(3),
+    h1: makeHeading("h1"),
+    h2: makeHeading("h2"),
+    h3: makeHeading("h3"),
   }), []);
 
   return (
