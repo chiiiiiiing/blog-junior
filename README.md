@@ -1,641 +1,213 @@
 # chiiiiiiing's blog junior — 全栈个人博客系统
 
-一个前后端分离的现代个人博客系统，采用极简高留白的设计风格（类 Medium/Notion），完美支持 Markdown、代码高亮和 LaTeX 数学公式渲染。
+一个前后端分离的现代个人博客系统，支持 Markdown、代码高亮、LaTeX 数学公式渲染、文章标签、目录导航和搜索。
 
 ---
 
-## 1. 项目架构与目录结构
+## 1. 项目架构
 
 ```
 blog-XLab/
-├── backend/                     # 后端服务 (Express + Prisma)
-│   ├── package.json
-│   ├── tsconfig.json
+├── backend/                     # 后端：处理数据存储和业务逻辑
 │   ├── prisma/
-│   │   ├── schema.prisma        # 数据模型定义 (User/Post/Comment/Like)
-│   │   ├── seed.ts              # 种子数据脚本
-│   │   ├── dev.db               # SQLite 数据库文件（自动生成）
-│   │   └── migrations/          # 数据库迁移记录
+│   │   ├── schema.prisma        # 数据库表结构定义
+│   │   ├── seed.ts              # 初始测试数据
+│   │   └── dev.db               # SQLite 数据库文件（自动生成）
 │   └── src/
-│       ├── index.ts             # Express 服务入口，路由挂载
-│       ├── routes/
-│       │   ├── auth.ts          # 用户认证 (注册/登录/获取当前用户)
-│       │   ├── posts.ts         # 博客文章 CRUD + 分页列表
-│       │   ├── comments.ts      # 评论发表与删除
-│       │   └── likes.ts         # 点赞/取消点赞切换
-│       ├── middleware/
-│       │   └── auth.ts          # JWT 认证与角色鉴权中间件
-│       └── utils/
-│           └── jwt.ts           # JWT Token 签发与校验
+│       ├── index.ts             # 服务入口
+│       ├── routes/              # API 接口
+│       ├── middleware/          # 权限校验
+│       └── utils/               # 工具函数
 │
-├── frontend/                    # 前端应用 (Vite + React + Tailwind)
-│   ├── package.json
-│   ├── vite.config.ts           # Vite 配置（含 API 代理）
-│   ├── index.html               # HTML 入口
+├── frontend/                    # 前端：用户看到的页面
 │   └── src/
-│       ├── main.tsx             # React 入口
-│       ├── App.tsx              # 路由配置（BrowserRouter）
-│       ├── index.css            # 全局样式 + Tailwind + KaTeX
-│       ├── api/
-│       │   └── axios.ts         # Axios 实例 + 拦截器
-│       ├── contexts/
-│       │   └── AuthContext.tsx   # 全局认证状态管理
-│       ├── types/
-│       │   └── index.ts         # TypeScript 类型定义
-│       ├── pages/
-│       │   ├── Home.tsx         # 首页 — 文章列表 + 分页
-│       │   ├── PostDetail.tsx   # 文章详情 — Markdown 渲染 + 评论
-│       │   ├── Login.tsx        # 登录页
-│       │   ├── Register.tsx     # 注册页
-│       │   ├── AdminDashboard.tsx # 管理后台 — 文章管理列表
-│       │   └── AdminEditPost.tsx  # 文章编辑器 — 双栏实时预览
-│       └── components/
-│           ├── Navbar.tsx           # 导航栏（认证状态感知）
-│           ├── PostCard.tsx         # 文章卡片
-│           ├── MarkdownRenderer.tsx # Markdown/LaTeX/代码渲染
-│           ├── LikeButton.tsx       # 点赞按钮（Optimistic UI）
-│           ├── CommentSection.tsx   # 评论区组件
-│           └── Pagination.tsx       # 分页导航
+│       ├── pages/               # 页面（首页、文章详情、登录、管理后台等）
+│       ├── components/          # 可复用组件（导航栏、文章卡片、目录等）
+│       ├── api/                 # 与后端通信的配置
+│       ├── contexts/            # 全局状态（登录状态）
+│       └── types/               # TypeScript 类型定义
 │
-└── README.md                    # 本文件
+└── README.md
 ```
+
+> **新人理解**：这个项目分两块——`backend`（后端）负责存数据、处理登录、提供 API；`frontend`（前端）负责网页界面。浏览器访问前端 → 前端调后端 API → 后端查数据库 → 返回数据给前端显示。
 
 ---
 
 ## 2. 核心技术栈
 
-### 2.1 后端技术
+### 2.1 运行时与框架
 
-#### 运行时与框架
+| 技术 | 一句话解释 | 为什么选它 |
+|------|-----------|-----------|
+| **Node.js** | 让 JavaScript 能在服务器上运行 | 前后端同一种语言，不用学两套 |
+| **TypeScript** | 给 JavaScript 加了"类型标注"，写代码时就能发现错误 | 避免 `undefined` 之类的运行时崩溃 |
+| **Express** | Node.js 最流行的 Web 框架，处理 HTTP 请求 | 简单、稳定、教程多 |
+| **React 19** | 把网页拆成可复用的"组件"，数据变了自动更新界面 | 生态最大，出了问题容易搜到答案 |
+| **Vite** | 前端构建工具，开发时秒级热更新 | 比旧工具（Webpack）快几十倍 |
 
-| 技术 | 用途 | 选型理由 |
-|------|------|----------|
-| **Node.js** (≥18) | JavaScript 运行时，基于 V8 引擎 | 前后端统一语言，生态丰富，非阻塞 I/O 适合博客类 IO 密集型场景 |
-| **TypeScript** | 为 JS 添加静态类型系统 | 编译期发现类型错误，智能代码补全，提升大型项目可维护性 |
-| **Express** | 轻量级 HTTP 框架 | 最成熟的 Node.js 框架，中间件生态完善，学习成本低，灵活性高 |
+### 2.2 数据库
 
-#### 数据库与 ORM
+| 技术 | 一句话解释 | 为什么选它 |
+|------|-----------|-----------|
+| **SQLite** | 数据库就是一个文件 `dev.db`，不需要安装数据库软件 | 零配置，备份就是复制文件，个人博客绰绰有余 |
+| **Prisma** | 用 TypeScript 代码操作数据库，不用手写 SQL | 写错字段名编译时就报错，不会上线才发现 |
 
-| 技术 | 用途 | 选型理由 |
-|------|------|----------|
-| **SQLite** | 嵌入式关系型数据库 | **零配置零依赖**，数据就是一个单文件 `dev.db`，备份只需复制文件；轻量级博客场景性能完全够用（单机 QPS 可达数万） |
-| **Prisma** | 下一代 Node.js ORM | 类型安全的数据库操作，Schema-first 定义数据模型，自动生成迁移脚本，提供 GUI 管理工具 Prisma Studio |
+### 2.3 认证与安全
 
-#### 认证与安全
+| 技术 | 一句话解释 |
+|------|-----------|
+| **JWT** | 登录后发一个加密令牌（Token），之后请求带上它就能识别身份——服务器不用记谁登录了 |
+| **bcryptjs** | 密码不会明文存数据库，而是经过不可逆的哈希变换，即使数据库泄露密码也不会暴露 |
+| **Zod** | 校验前端发来的数据格式对不对（比如邮箱是不是合法格式） |
 
-| 技术 | 用途 | 选型理由 |
-|------|------|----------|
-| **JWT** (jsonwebtoken) | 无状态用户认证 | 服务端不存 Session，水平扩展友好；Token 内包含用户 ID + 角色，中间件直接解析无需查库 |
-| **bcryptjs** | 密码哈希（加盐 + 多轮散列） | 纯 JS 实现无需编译原生模块，跨平台兼容性好；10 轮 salt 足够防御彩虹表攻击 |
-| **Zod** | 请求体校验 | TypeScript-first 的 Schema 校验库，定义一次 Schema 自动推导 TS 类型，避免重复定义 |
+### 2.4 Markdown 渲染
 
-### 2.2 前端技术
-
-#### 核心框架与构建
-
-| 技术 | 用途 | 选型理由 |
-|------|------|----------|
-| **Vite** | 构建工具与开发服务器 | 基于 ESM 原生模块，冷启动 < 1 秒，HMR 热更新极快；Rollup 生产打包，产物优化到位 |
-| **React 19** | UI 组件化框架 | 函数组件 + Hooks 心智模型简洁，并发特性（useTransition 等）提升交互体验，生态最庞大 |
-| **TypeScript** | 类型安全 | 组件 Props 类型校验，API 响应类型定义，避免运行时 undefined 错误 |
-| **React Router v7** | 客户端路由 | 声明式路由配置，支持嵌套路由、懒加载、路由守卫 |
-
-#### 样式与 UI
-
-| 技术 | 用途 | 选型理由 |
-|------|------|----------|
-| **Tailwind CSS v4** | 原子化 CSS 框架 | 直接在 HTML 中写样式，无需命名 class、无需切换文件；构建时摇树，生产包极小；v4 使用 CSS-first 配置，性能更好 |
-
-#### 数据请求
-
-| 技术 | 用途 | 选型理由 |
-|------|------|----------|
-| **Axios** | HTTP 客户端 | 请求/响应拦截器自动附加 JWT Token、统一处理 401；比原生 fetch 更简洁的错误处理和超时控制 |
-
-#### Markdown 渲染管线
-
-整个 Markdown 渲染使用 **unified 生态**的管道式处理，每一步职责单一：
+你写的 Markdown 文本，经过一条"流水线"变成网页：
 
 ```
-Markdown 原始文本
-  → remark.parse (解析为 AST)
-  → remark-gfm (GFM 扩展：表格、删除线、任务列表)
-  → remark-math (识别 $...$ 和 $$...$$ 数学公式)
-  → remark-rehype (转换 MDAST → HAST，即 HTML AST)
-  → rehype-highlight (代码块语法高亮，基于 highlight.js)
-  → rehype-katex (数学公式渲染为 HTML + CSS)
-  → rehype-stringify (序列化为 HTML 字符串)
-  → React 组件渲染
+Markdown 文本
+  → 解析表格、删除线（remark-gfm）
+  → 识别数学公式 $...$（remark-math）
+  → 代码语法高亮（rehype-highlight，支持 190+ 语言）
+  → 公式渲染为 HTML（rehype-katex）
+  → 显示在网页上
 ```
 
-| 技术 | 用途 |
-|------|------|
-| **react-markdown** | 将 Markdown 渲染为 React 组件，替代 dangerouslySetInnerHTML，安全且可自定义 |
-| **remark-gfm** | GitHub Flavored Markdown 扩展 —— 表格、删除线、自动链接、任务列表 |
-| **remark-math** | 解析 Markdown 中的 LaTeX 数学公式语法（`$inline$` 和 `$$block$$`） |
-| **rehype-highlight** | 基于 highlight.js 的代码语法高亮，支持 190+ 种语言 |
-| **rehype-katex** | 将 LaTeX 公式渲染为 HTML + CSS，比 MathJax 快 5–10 倍 |
-| **KaTeX** | 数学公式排版引擎，无依赖纯静态渲染，支持大部分 LaTeX 语法 |
+### 2.5 样式
 
-### 2.3 数据库模型关系
-
-```
-User (1) ─────< (N) Post        # 一个用户写多篇文章
-User (1) ─────< (N) Comment     # 一个用户发表多条评论
-User (1) ─────< (N) Like        # 一个用户点赞多篇文章
-Post  (1) ─────< (N) Comment    # 一篇文章有多条评论 (级联删除)
-Post  (1) ─────< (N) Like       # 一篇文章有多个点赞 (级联删除)
-Like  [userId, postId] 联合唯一索引  # 同一用户对同一文章只能点赞一次
-```
-
-#### 表结构速览
-
-**User（用户表）**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Int (自增) | 主键 |
-| username | String (唯一) | 用户名 |
-| email | String (唯一) | 邮箱，登录凭据 |
-| passwordHash | String? | bcrypt 密码哈希（GitHub 用户可为空） |
-| role | String | `ADMIN` 或 `USER`，默认 USER |
-| githubId | String? (唯一) | GitHub OAuth 绑定的 ID |
-| avatar | String? | 头像 URL |
-| createdAt | DateTime | 注册时间 |
-
-**Post（文章表）**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Int (自增) | 主键 |
-| title | String | 文章标题 |
-| slug | String (唯一) | URL 友好的英文标识，用于路由 |
-| content | String | Markdown 正文 |
-| published | Boolean | 是否发布（false = 草稿） |
-| authorId | Int (外键) | 关联 User.id |
-| createdAt / updatedAt | DateTime | 创建/更新时间 |
-
-**Comment（评论表）**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Int (自增) | 主键 |
-| content | String | 评论内容 |
-| postId | Int (外键) | 关联 Post.id（级联删除） |
-| authorId | Int (外键) | 关联 User.id |
-| createdAt | DateTime | 评论时间 |
-
-**Like（点赞表）**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Int (自增) | 主键 |
-| postId | Int (外键) | 关联 Post.id（级联删除） |
-| userId | Int (外键) | 关联 User.id |
-| createdAt | DateTime | 点赞时间 |
-| @@unique([userId, postId]) | 联合唯一 | 数据库层面防重复点赞 |
+| 技术 | 一句话解释 |
+|------|-----------|
+| **Tailwind CSS v4** | 直接在 HTML 标签上写样式（如 `class="text-blue-600"` 就是蓝色文字），不用在 CSS 文件和 HTML 之间来回切换 |
 
 ---
 
-## 3. 开发环境运行指南
+## 3. 本地运行指南
 
-### 前置要求
+> **新人理解**：你在自己电脑上先把项目跑起来看看效果，确认没问题再部署到服务器。
 
-- Node.js ≥ 18
-- npm ≥ 9
+### 前置条件
+
+- **Node.js** ≥ 18（[下载地址](https://nodejs.org) — 选 LTS 版，一路下一步安装）
+- **npm** ≥ 9（安装 Node.js 时自动附带）
+- 一个终端（Windows 按 `Win+R` 输入 `cmd` 回车，或搜 PowerShell）
 
 ### 3.1 启动后端
 
 ```bash
-cd backend
+cd backend                      # 进入后端目录
 
-# 安装依赖
-npm install
+npm install                     # 安装依赖（根据 package.json 下载需要的库）
+                                # 新人理解：类似手机装 App，只不过这里是装代码库
 
-# 初始化数据库（生成 SQLite + 运行迁移 + 注入种子数据）
-npx prisma migrate dev --name init
-npm run db:seed
+npx prisma migrate dev --name init  # 创建数据库表（根据 schema.prisma 生成）
+                                    # 新人理解：在 dev.db 文件里建好 User、Post 等表格
 
-# 启动开发服务器（端口 3001，支持热重载）
-npm run dev
+npm run db:seed                 # 注入测试数据（创建管理员账号和 3 篇示例文章）
+                                # 新人理解：往空表里插入初始数据，不用手动一条条写
+
+npm run dev                     # 启动后端服务（端口 3001，代码改动自动重启）
 ```
 
-种子数据包含：
+看到 `Backend running on http://localhost:3001` 就是启动成功了。
 
-- **管理员**: `admin@blog-xlab.com` / `admin123`
-- **普通用户**: `zhangsan@blog-xlab.com` / `user123`
-- **普通用户**: `lisi@blog-xlab.com` / `user456`
-- **3 篇**带有 Markdown、代码块和 LaTeX 数学公式的示例文章
+种子数据中的测试账号：
+
+| 角色 | 邮箱 | 密码 |
+|------|------|------|
+| 管理员 | `admin@blog-xlab.com` | `admin123` |
+| 普通用户 | `zhangsan@blog-xlab.com` | `user123` |
+| 普通用户 | `lisi@blog-xlab.com` | `user456` |
 
 ### 3.2 启动前端
 
+**另开一个终端窗口**（后端那个不要关），执行：
+
 ```bash
-cd frontend
+cd frontend                     # 进入前端目录
 
-# 安装依赖
-npm install
+npm install                     # 安装前端依赖
 
-# 启动开发服务器（端口 5173，Vite 自动代理 /api 到后端 3001）
-npm run dev
+npm run dev                     # 启动前端开发服务器（端口 5173）
 ```
 
-访问 `http://localhost:5173` 即可查看博客。
+浏览器访问 **`http://localhost:5173`** 即可看到博客。
 
-### 3.3 开发阶段常用命令
+> **新人理解**：为什么前端后端要分开跑？因为开发时 Vite 会自动代理 `/api` 请求到后端 3001 端口——你在前端页面登录，请求实际发到了后端。部署到服务器后，这个职责由 Nginx 承担。
 
-| 命令 | 说明 |
-|------|------|
-| `npm run dev` | 启动后端 / 前端开发服务器 |
-| `npm run build` | 生产环境构建 |
-| `npx prisma studio` | 打开 Prisma 数据管理 GUI（可视化查看/编辑数据库） |
-| `npm run db:seed` | 重新注入种子数据 |
-| `npm run db:push` | 同步 Schema 到数据库（跳过迁移） |
+### 3.3 常用命令速查
 
-### 3.4 本地数据库查看
+| 命令 | 在哪个目录执行 | 做什么 |
+|------|--------------|--------|
+| `npm run dev` | backend 或 frontend | 启动开发服务器 |
+| `npm run build` | backend 或 frontend | 编译为生产版本（部署前必须执行） |
+| `npx prisma studio` | backend | 打开网页版数据库浏览器（`localhost:5555`） |
+| `npm run db:seed` | backend | 重新注入测试数据（会清空现有数据！） |
+| `npx prisma db push` | backend | 修改了 schema.prisma 后同步到数据库 |
 
-数据库文件位于 `backend/prisma/dev.db`（SQLite 单文件），有三种方式查看：
+### 3.4 查看本地数据库
 
-#### 方式一：Prisma Studio（推荐，图形界面）
+数据库是一个文件：`backend/prisma/dev.db`。三种查看方式：
+
+**方式一：Prisma Studio（推荐，有图形界面）**
 
 ```bash
 cd backend
 npx prisma studio
 ```
 
-浏览器会自动打开 `http://localhost:5555`，可以**可视化**浏览和编辑所有表数据（User、Post、Comment、Like）。
+浏览器自动打开 `http://localhost:5555`，可以点表格浏览和编辑数据。
 
-#### 方式二：命令行快速查询
-
-```bash
-cd backend
-npx prisma db execute --stdin
-```
-
-然后输入 SQL 查询，例如：
-
-```sql
--- 查看所有用户
-SELECT id, username, email, role FROM User;
-
--- 查看所有文章
-SELECT id, title, slug, published FROM Post;
-```
-
-按 `Ctrl+D` 执行。
-
-#### 方式三：sqlite3 命令行（需单独安装）
+**方式二：sqlite3 命令行**
 
 ```bash
-# 安装 sqlite3（如果没装）
-# Windows: choco install sqlite / winget install SQLite.SQLite
-# Mac: brew install sqlite
-# Linux: sudo apt-get install sqlite3
-
-# 连接数据库
+# 先装 sqlite3（Mac 自带，Windows 用 winget install SQLite.SQLite）
 sqlite3 backend/prisma/dev.db
 
-# 常用命令
-.tables              # 列出所有表
-.schema User         # 查看 User 表结构
-SELECT * FROM User;  # 查询所有用户
+# 进去后：
+.tables              # 看有哪些表
+SELECT * FROM User;  # 查所有用户
 .quit                # 退出
 ```
 
-### 3.5 常见启动问题
+**方式三：宝塔面板**
 
-#### ❓ 登录失败（管理员账户登不进去）
+服务器上登录宝塔 → 文件 → 找到 `dev.db` → 右键用 SQLite 工具打开。
 
-**必须确保后端已启动**，后端不运行则 API 无法响应。
+### 3.5 常见问题
 
-检查后端是否在运行：
+**❓ 登录失败**
+后端没启动，或者启动了但前端连不上。确认两个终端都在运行，后端显示 `running on http://localhost:3001`。
 
+**❓ 页面空白**
+打开浏览器 F12 → Network（网络）标签 → 刷新页面 → 看红色报错是什么。通常是后端没启或者端口被占。
+
+**❓ 端口被占用**
 ```bash
-# Windows: 查看端口 3001 是否被占用
+# Windows
 netstat -ano | findstr :3001
-
-# Mac / Linux
-lsof -i :3001
-```
-
-如果没有输出，说明后端未启动，执行：
-
-```bash
-cd backend
-npm run dev
-```
-
-> ⚠️ **注意**：前端和后端需要**同时运行**（开两个终端），访问 `http://localhost:5173` 而非直接打开 `index.html`。
-
-#### ❓ 页面空白 / API 请求失败
-
-1. 确认后端终端显示 `Server running on http://localhost:3001`
-2. 确认前端终端显示 `http://localhost:5173`
-3. 打开浏览器开发者工具（F12）→ Network 面板，查看 `/api/` 请求是否返回错误
-
-#### ❓ 数据库文件损坏或数据异常
-
-重新初始化数据库：
-
-```bash
-cd backend
-rm -f prisma/dev.db              # 删除旧数据库文件
-npx prisma db push               # 重建表结构
-npm run db:seed                  # 重新注入种子数据
-```
-
-#### ❓ 端口被占用
-
-```bash
-# Windows: 查看占用 3001 端口的进程
-netstat -ano | findstr :3001
-# 记下 PID，在任务管理器结束进程
+# 记下 PID，任务管理器里结束进程
 
 # Mac / Linux
 lsof -i :3001
 kill -9 <PID>
 ```
 
-### 3.6 自定义友链
-
-友链配置文件位于 `frontend/src/components/Blogroll.tsx`，编辑 `LINKS` 数组即可增删改链接：
-
-```tsx
-const LINKS = [
-  { name: "React", url: "https://react.dev", desc: "用于构建用户界面的 JavaScript 库" },
-  // 添加友链示例：
-  // { name: "显示名称", url: "https://example.com", desc: "一句话描述" },
-];
-```
-
-修改后刷新页面即可看到效果，无需重启。
-
----
-
-## 4. 部署到公有网络（⭐ 核心章节）
-
-下面介绍云服务器（VPS）手动部署方式。
-
-### 📋 部署前准备
-
-你需要准备以下两样东西：
-
-| 必需品 | 说明 | 参考花费 |
-|--------|------|----------|
-| **一台云服务器** | 云服务器（VPS），如阿里云/腾讯云/AWS 等 | ¥30–100/月 |
-| **一个域名**（推荐）| 让用户通过 `blog.xxx.com` 访问。国内域名需备案 | ¥30–60/年 |
-
-**推荐的云服务器购买渠道：**
-
-- 国内：阿里云 ECS / 腾讯云轻量应用服务器（新人¥68/年）
-- 海外：AWS Lightsail / Vultr / DigitalOcean（$5–6/月）
-- 免费：Oracle Cloud Always Free（永久免费 VPS，4核 24G RAM）
-
-> 💡 **关于备案**：如果你使用国内服务器 + 国内域名，根据法规需要做 ICP 备案（约 15-20 个工作日）。不想备案可以选择**香港/海外服务器**。
-
----
-
-### 云服务器（VPS）手动部署
-
-这是最经典、最灵活的方案。适合任何云服务器（阿里云/腾讯云/AWS/任意 VPS）。
-
-#### A.1 连接到服务器
-
-```bash
-# 将下面地址换成你自己的服务器 IP
-ssh root@47.97.204.202
-```
-
-#### A.2 安装 Node.js 环境
-
-```bash
-# 使用 NodeSource 安装 Node.js 20.x（LTS）
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# 验证安装
-node -v    # 应输出 v20.x.x
-npm -v     # 应输出 10.x.x
-```
-
-如果用的是 CentOS / Rocky Linux，将 `apt-get` 换成 `yum`。
-
-#### A.3 安装 PM2、Nginx 和 Git
-
-```bash
-# PM2：进程守护，保证后端 7×24 运行
-sudo npm install -g pm2
-
-# Nginx：高性能 Web 服务器，负责接收公网请求并转发
-sudo apt-get install -y nginx
-
-# Git：拉取代码（如果通过 GitHub 管理代码）
-sudo apt-get install -y git
-```
-
-#### A.4 克隆项目到服务器
-
-```bash
-# 创建部署目录
-mkdir -p /home/deploy
-cd /home/deploy
-
-# 方式一：从 GitHub 克隆（推荐）
-git clone https://github.com/你的用户名/blog-XLab.git
-
-# 方式二：手动上传（用 scp 或 SFTP 工具）
-# scp -r ./blog-XLab root@47.97.204.202:/home/deploy/
-
-cd blog-XLab
-```
-
-#### A.5 构建后端
-
+**❓ 数据库乱了想重置**
 ```bash
 cd backend
-npm install
-npx prisma generate
+rm -f prisma/dev.db
 npx prisma db push
-
-# 可选：注入初始数据
 npm run db:seed
-
-# TypeScript 编译
-npm run build
-
-# 用 PM2 启动后端进程
-pm2 start dist/index.js --name blog-xlab-api
-
-# 验证后端是否启动成功
-curl http://localhost:3001/api/health
-# 预期输出：{"status":"ok","timestamp":"..."}
-```
-
-#### A.6 构建前端
-
-```bash
-cd ../frontend
-npm install
-npm run build
-
-# 产物在 frontend/dist/ 目录下
-ls dist/
-# 应有 index.html 和 assets/ 目录
-```
-
-#### A.7 配置 Nginx 反向代理
-
-创建 Nginx 配置文件：
-
-```bash
-sudo nano /etc/nginx/sites-available/blog-xlab
-```
-
-写入以下内容（有域名的话把 `47.97.204.202` 换成你的域名）：
-
-```nginx
-server {
-    listen 80;
-    server_name 47.97.204.202;   # 有域名就换成你的域名
-
-    # ========== 前端静态文件 ==========
-    root /home/deploy/blog-XLab/frontend/dist;
-    index index.html;
-
-    # Gzip 压缩（减小传输体积）
-    gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript image/svg+xml;
-    gzip_min_length 1000;
-
-    # 静态资源强缓存（文件名带 hash，可放心缓存一年）
-    location /assets/ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-
-    # SPA 路由回退：所有非文件请求都返回 index.html
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # ========== API 反向代理 ==========
-    location /api/ {
-        proxy_pass http://127.0.0.1:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # 上传限制（Markdown 文章可能包含 base64 图片）
-        client_max_body_size 10m;
-    }
-}
-```
-
-启用配置并重载 Nginx：
-
-```bash
-# 创建软链接启用站点
-sudo ln -s /etc/nginx/sites-available/blog-xlab /etc/nginx/sites-enabled/
-
-# 删除默认站点（避免冲突）
-sudo rm -f /etc/nginx/sites-enabled/default
-
-# 检查配置语法
-sudo nginx -t
-
-# 重载 Nginx
-sudo systemctl reload nginx
-```
-
-#### A.8 配置防火墙
-
-```bash
-# 如果你用 ufw（Ubuntu 默认）
-sudo ufw allow 22/tcp     # SSH
-sudo ufw allow 80/tcp     # HTTP
-sudo ufw allow 443/tcp    # HTTPS
-sudo ufw enable
-
-# ⚠️ 如果是云服务器（阿里云/腾讯云/AWS 等），还需要在网页控制台的
-#    「安全组」/「防火墙」中添加入站规则，放行 80 和 443 端口。
-#    这一步非常容易遗漏！
-```
-
-#### A.9 配置 HTTPS（SSL 证书）
-
-有了 HTTPS，浏览器地址栏才有那个绿色小锁。使用 Let's Encrypt 免费证书：
-
-```bash
-# 安装 Certbot
-sudo apt-get install -y certbot python3-certbot-nginx
-
-# 自动获取证书并配置 Nginx
-sudo certbot --nginx -d 47.97.204.202
-
-# 按提示操作：输入邮箱 → 同意条款 → 选择是否重定向 HTTP 到 HTTPS（选 2）
-```
-
-Certbot 会自动修改 Nginx 配置并设置证书自动续期。验证自动续期是否正常：
-
-```bash
-sudo certbot renew --dry-run
-# 看到 "Congratulations" 即表示正常
-```
-
-#### A.10 设置 PM2 开机自启
-
-```bash
-# 让 PM2 随系统启动
-pm2 startup systemd
-# 按照屏幕提示复制并执行那条 sudo 命令
-
-# 保存当前进程列表（重启后自动恢复）
-pm2 save
-```
-
-#### A.11 验证部署结果
-
-```bash
-# 本地检查
-pm2 status                     # blog-xlab-api 应为 online
-sudo systemctl status nginx    # 应为 active (running)
-curl http://localhost/api/health
-
-# 公网检查：在浏览器访问 https://你的域名.com
-# 应看到博客首页，3 篇示例文章正常显示
 ```
 
 ---
 
-### 🔧 运维锦囊
+## 4. 更新部署流程
 
-#### 数据库备份（极其重要！）
+> **新人理解**：你在本地改了代码 → 推到 GitHub（代码托管网站） → 服务器从 GitHub 拉取最新代码 → 重新构建 → 网站就更新了。GitHub 相当于中转站。
 
-SQLite 是一个单文件数据库，备份就是复制文件：
-
-```bash
-# 👇 手动备份（一条命令）
-cp /home/deploy/blog-XLab/backend/prisma/dev.db ~/backups/dev-$(date +%Y%m%d-%H%M).db
-
-# 👇 设置定时任务：每天凌晨 3 点自动备份
-crontab -e
-# 粘贴下面这行：
-0 3 * * * cp /home/deploy/blog-XLab/backend/prisma/dev.db ~/backups/dev-$(date +\%Y\%m\%d).db
-
-# 👇 只保留最近 30 天的备份（加到 cron 里）
-0 4 * * * find ~/backups -name "dev-*.db" -mtime +30 -delete
-```
-
-> ⚠️ 建议把备份目录 `~/backups/` 再同步到云存储（如阿里云 OSS / 腾讯云 COS / AWS S3），或至少定期下载到本地。
-
-#### 更新部署流程
-
-每次修改代码后，三步完成更新：本地 push → 服务器 pull → 重建构建。
-
----
-
-**流程图：**
+### 流程图
 
 ```
 你的电脑                GitHub              服务器 (47.97.204.202)
@@ -644,273 +216,275 @@ crontab -e
   │                      ├─ git pull ──────────►│
   │                      │                      ├─ npm run build
   │                      │                      ├─ pm2 restart
-  │                      │                      └─ 浏览器刷新即生效
+  │                      │                      └─ 刷新浏览器即生效
 ```
 
----
+### 第 1 步：本地提交并推送（你的电脑上）
 
-**第 1 步：本地提交代码（你的电脑上）**
+打开 **PowerShell** 或 **cmd**：
 
 ```powershell
-# 打开 PowerShell，cd 到项目目录
-cd D:\桌面\blog-XLab
+cd D:\桌面\blog-XLab       # 进入项目目录
 
-# 把所有改动的文件加入提交
-git add .
+git add .                  # 把所有改动加入暂存区
+                           # 新人理解：告诉 git "这些文件我要提交"
 
-# 提交（引号里写你这次改了什么）
-git commit -m "描述你的改动"
+git commit -m "描述你改了什么"  # 创建一次提交（相当于保存一个快照）
+                                # -m 后面引号里写备注，方便以后回顾
 
-# 推送到 GitHub
-git push origin main
+git push origin main       # 推送到 GitHub
+                           # 新人理解：把本地提交同步到 GitHub 网站上
 ```
 
-看到 `Writing objects: 100%` 就是推送成功。
+看到 `Writing objects: 100%` 表示推送成功。
 
-> 如果你的 GitHub 用的是 SSH 方式但之前配了 HTTPS，先改成 SSH：
-> ```bash
-> git remote set-url origin git@github.com:chiiiiiiing/blog-junior.git
-> ```
-> 之后 `git push` 就不用输密码了。
+> **什么是 Git / GitHub？** Git 是一个"版本控制"工具，能记录你每次修改了什么、谁改的、什么时候改的。GitHub 是一个网站，用来托管 Git 仓库，同时也作为本地和服务器之间的代码中转站。
 
----
-
-**第 2 步：服务器拉取代码（SSH 到服务器）**
+### 第 2 步：服务器拉取代码
 
 ```bash
-# 先 SSH 到服务器
-ssh root@47.97.204.202
+ssh root@47.97.204.202     # SSH 登录服务器
+                           # 新人理解：远程连接到你的阿里云服务器
 
-# 进入项目目录，拉取最新代码
-cd /home/deploy/blog-junior
-git pull origin main
+cd /home/deploy/blog-junior  # 进入服务器上的项目目录
+
+git pull origin main       # 从 GitHub 拉取最新代码
+                           # 新人理解：把 GitHub 上最新的代码下载到服务器
 ```
 
-看到类似 `630bf5b..a1b2c3d  main -> origin/main` 说明有新代码被拉下来了。
+看到 `Updating xxxxx..yyyyy` 说明有新代码被拉下来了。
 
-> 如果显示 `Already up to date`，说明第 1 步的 `git push` 没成功，回去检查。
+> 如果显示 `Already up to date`：说明第 1 步的 `git push` 没成功，回去检查。
 
----
+### 第 3 步：重建构建
 
-**第 3 步：重建构建（在服务器上）**
-
-根据你改了什么，选择对应的命令：
-
-| 你改了什么 | 执行命令 |
-|-----------|---------|
-| **只改前端**（页面、样式、组件） | `cd /home/deploy/blog-junior/frontend && npm install --silent && npm run build` |
-| **只改后端**（路由、API） | `cd /home/deploy/blog-junior/backend && npm install --silent && npm run build && pm2 restart blog-xlab-api` |
-| **改了数据库**（schema.prisma） | `cd /home/deploy/blog-junior/backend && npx prisma generate && npx prisma db push && npm run build && pm2 restart blog-xlab-api` |
-| **前后端都改了** | 先执行后端那一行，再执行前端那一行 |
-
-> 实际使用时，**不确定改了什么就直接全量重建**，跑下面这一条：
-> ```bash
-> cd /home/deploy/blog-junior/frontend && npm install --silent && npm run build && cd ../backend && npm install --silent && npm run build && pm2 restart blog-xlab-api
-> ```
-
----
-
-**第 4 步：验证**
+根据你改了什么，选对应的命令。**不确定就全量重建**：
 
 ```bash
-# 后端是否正常
+# 全量重建（推荐，改什么都行）
+cd /home/deploy/blog-junior/frontend && npm install --silent && npm run build && cd ../backend && npm install --silent && npm run build && pm2 restart blog-xlab-api
+```
+
+> **新人理解这条命令在做什么：**
+> - `cd /home/deploy/blog-junior/frontend` — 进入前端目录
+> - `npm install --silent` — 如果有新依赖就安装（没有也能正常跑）
+> - `npm run build` — 编译 TypeScript + 打包前端资源 → 生成 `dist/` 目录
+> - `cd ../backend` — 切换到后端目录
+> - `npm run build` — 编译后端 TypeScript
+> - `pm2 restart blog-xlab-api` — 重启后端进程，让新代码生效
+
+按改动类型精简重建：
+
+| 改了什么 | 执行什么 |
+|---------|---------|
+| 只改前端（页面、样式） | `cd /home/deploy/blog-junior/frontend && npm run build` |
+| 只改后端（API） | `cd /home/deploy/blog-junior/backend && npm run build && pm2 restart blog-xlab-api` |
+| 改了数据库结构 | `cd /home/deploy/blog-junior/backend && npx prisma generate && npx prisma db push && npm run build && pm2 restart blog-xlab-api` |
+
+### 第 4 步：验证
+
+```bash
+# 后端健康检查
 curl http://localhost:3001/api/health
-# → {"status":"ok","timestamp":"..."}
+# 正常返回 → {"status":"ok","timestamp":"..."}
 
-# 首页是否返回最新内容
+# 首页是否返回
 curl -s http://47.97.204.202/ | grep "<title>"
-# → <title>chiiiiiiing's blog junior</title>
+# 正常返回 → <title>chiiiiiiing's blog junior</title>
 
 # 登录是否正常
 curl -s -X POST http://47.97.204.202/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@blog-xlab.com","password":"admin123"}'
-# → {"message":"登录成功",...}
+# 正常返回 → {"message":"登录成功","token":"...","user":{...}}
 ```
 
-浏览器访问 `http://47.97.204.202`，**Ctrl+F5 强制刷新**。
+浏览器访问 `http://47.97.204.202`，**Ctrl+F5** 强制刷新（跳过浏览器缓存）。
 
----
+### 常见故障
 
-**常见故障速查：**
+| 现象 | 可能原因 | 解决 |
+|------|---------|------|
+| `git push` 报 `Permission denied` | 没配 SSH Key | 见下方「配置 Git SSH Key」 |
+| `git pull` 报 `Connection timed out` | 国内服务器连 GitHub 不稳定 | 多试几次，或用 scp 备选方案 |
+| `Already up to date` 但代码确实改了 | 本地忘了 `git push` | 回到第 1 步 |
+| `npm run build` 报编译错误 | 代码有 TypeScript 错误 | 看终端报错信息，修好后重新 push |
+| 构建成功但浏览器没变化 | 浏览器缓存了旧页面 | Ctrl+F5 强制刷新 |
+| 页面刷新后 404 | Nginx 配置问题 | 确认配置里有 `try_files $uri $uri/ /index.html;` |
 
-| 现象 | 原因 | 解决 |
-|------|------|------|
-| `git push` 报 `Permission denied` | SSH Key 没配 | `ssh-keygen -t ed25519` → 把公钥加到 GitHub Settings → SSH Keys |
-| `git pull` 报 `Connection timed out` | 服务器连不上 GitHub | 改用 scp 上传（见下方备选方案） |
-| `Already up to date` 但代码确实改了 | 本地忘了 `git push` | 回第 1 步重新 push |
-| `npm run build` 报错 | 代码有编译错误 | 看终端报错信息，修复后重新 push |
-| 构建成功但浏览器没变化 | 浏览器缓存 | Ctrl+F5 强制刷新 |
-| 页面 404 | 前端构建未执行或失败 | 重新执行第 3 步前端命令 |
+### 备选方案：不用 GitHub，scp 直接传
 
----
-
-**备选方案：不用 GitHub，用 scp 直接传文件**
-
-如果服务器连不上 GitHub，在本地 PowerShell 执行：
+如果服务器怎么都连不上 GitHub，在**本地 PowerShell** 用这一条命令上传 + 重建：
 
 ```powershell
-# 上传并重建（一条命令）
 scp -r D:\桌面\blog-XLab\frontend\src root@47.97.204.202:/home/deploy/blog-junior/frontend/ ; scp -r D:\桌面\blog-XLab\backend\src root@47.97.204.202:/home/deploy/blog-junior/backend/ ; ssh root@47.97.204.202 "cd /home/deploy/blog-junior/frontend && npm run build && cd ../backend && npm run build && pm2 restart blog-xlab-api"
 ```
 
-
-
-
-
-
-
-#### 查看日志
-
-```bash
-# 后端日志
-pm2 logs blog-xlab-api --lines 50
-
-# Nginx 访问日志
-tail -f /var/log/nginx/access.log
-
-# Nginx 错误日志（排查 502 等问题时必看）
-tail -f /var/log/nginx/error.log
-```
-
-#### 常见问题排查
-
-| 现象 | 可能原因 | 解决方法 |
-|------|----------|----------|
-| 浏览器显示"无法访问此网站" | 防火墙未放行 80/443；或云服务器安全组未配置 | `sudo ufw allow 80/tcp && sudo ufw allow 443/tcp`；**检查云服务器安全组入站规则** |
-| 首页能访问，但 API 返回 502 | 后端进程挂了 | `pm2 status` 检查；`pm2 restart blog-xlab-api` |
-| 页面空白 / JS 加载失败 | 前端文件路径问题 | 检查 Nginx 的 `root` 目录是否指向 `frontend/dist` |
-| API 返回 401 且无限跳转登录页 | JWT_SECRET 变化导致旧 Token 失效 | 清除浏览器 localStorage；或重新登录 |
-| 刷新页面后 404 | Nginx 未配置 SPA 路由回退 | 检查是否有 `try_files $uri $uri/ /index.html;` |
-| 证书过期 / 不信任 | Let's Encrypt 自动续期失败 | `sudo certbot renew --force-renewal` |
-| 上传大文章失败 | `client_max_body_size` 太小 | Nginx 中设为 `client_max_body_size 10m;` |
-| PM2 进程频繁重启 | 代码有未捕获异常或内存泄漏 | `pm2 logs blog-xlab-api --err` 看错误堆栈 |
-| SQLite 数据库损坏 | 非正常关机或磁盘满 | 用备份文件覆盖；检查磁盘空间 `df -h` |
-
-#### 安全加固建议
-
-1. **更换 JWT_SECRET**：绝对不要用代码里的默认值 `blog-xlab-secret-key-2024`。生成一个强随机字符串：
-   ```bash
-   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-   ```
-   然后设为环境变量 `export JWT_SECRET=你生成的值`，并在 PM2 中配置：
-   ```bash
-   pm2 restart blog-xlab-api --update-env
-   ```
-
-2. **修改默认管理员密码**：上线后立即登录后台，然后通过 API 或直接改数据库修改管理员密码。
-
-3. **限制 SSH 登录**：
-   ```bash
-   # 禁用 root 密码登录，改用密钥登录
-   sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-   sudo systemctl restart sshd
-   ```
-
-4. **安装 Fail2Ban**（防止暴力破解）：
-   ```bash
-   sudo apt-get install -y fail2ban
-   sudo systemctl enable fail2ban
-   ```
-
-5. **定期更新系统**：
-   ```bash
-   sudo apt-get update && sudo apt-get upgrade -y
-   ```
+> **新人理解**：`scp` 相当于通过 SSH 通道复制文件，把本地代码直接传到服务器上，绕过 GitHub。
 
 ---
 
-### 4.5 配置 GitHub OAuth 登录（可选）
+## 5. 配置 Git SSH Key（让 git push/pull 不用输密码）
 
-要让用户通过 GitHub 账号一键登录，需要在 GitHub 创建一个 OAuth App：
+> **新人理解**：SSH Key 是一对"钥匙"——公钥放 GitHub，私钥在你电脑/服务器上。GitHub 看到你有对应的私钥，就允许你 push/pull，不用每次输密码。
 
-**步骤 1：创建 GitHub OAuth App**
+### 5.1 在你本地电脑上
 
-1. 登录 GitHub → Settings → Developer settings → OAuth Apps → **New OAuth App**
-2. 填写：
-   - **Application name**: `chiiiiiiing's blog junior`（或你的博客名）
-   - **Homepage URL**: `https://你的域名.com`
-   - **Authorization callback URL**: `https://你的域名.com/api/auth/github/callback`
-3. 点击 Register application
-4. 生成 **Client Secret** 并复制
+```powershell
+# 生成 SSH 密钥（一路回车就行）
+ssh-keygen -t ed25519 -C "your-email@example.com"
 
-**步骤 2：配置环境变量**
+# 显示公钥
+cat C:\Users\你的用户名\.ssh\id_ed25519.pub
+```
+
+复制输出的全部内容（以 `ssh-ed25519` 开头）。
+
+1. 浏览器打开 https://github.com/settings/keys
+2. 点 **New SSH key** → Title 随便写 → Key 粘贴 → **Add SSH key**
+
+```powershell
+# 测试是否配好
+ssh -T git@github.com
+# 看到 "Hi <你的用户名>!" 就是成功了
+
+# 改本地仓库用 SSH 方式连接
+cd D:\桌面\blog-XLab
+git remote set-url origin git@github.com:chiiiiiiing/blog-junior.git
+```
+
+### 5.2 在服务器上也配（让服务器能 git pull）
 
 ```bash
-# 在服务器上设置环境变量
-export GITHUB_CLIENT_ID="你的Client ID"
-export GITHUB_CLIENT_SECRET="你的Client Secret"
-export GITHUB_CALLBACK_URL="https://你的域名.com/api/auth/github/callback"
-export FRONTEND_URL="https://你的域名.com"
+ssh root@47.97.204.202
 
-# PM2 方式（推荐）
-pm2 restart blog-xlab-api --update-env
+# 同样生成密钥
+ssh-keygen -t ed25519 -C "server@blog-xlab"
+
+# 显示公钥
+cat ~/.ssh/id_ed25519.pub
 ```
 
-设置后，登录页会自动出现 **「GitHub 登录」** 按钮。
+同样把公钥加到 https://github.com/settings/keys（可以和本地是同一个公钥，也可以新建一个）。
 
-**步骤 3：本地开发测试**
-
-本地开发时，GitHub OAuth App 的 callback URL 设为：
-
-```
-http://localhost:3001/api/auth/github/callback
+```bash
+# 测试
+ssh -T git@github.com
+# 看到 "Hi <用户名>!" 就 OK
 ```
 
-同时在 `backend/.env`（手动创建）中写入：
+---
+
+## 6. GitHub OAuth 登录配置（用户用 GitHub 账号一键登录）
+
+> **新人理解**：GitHub OAuth 就像一个"门禁系统"——用户在你的博客点「GitHub 登录」→ 跳转到 GitHub 授权页面 → 用户点同意 → GitHub 告诉你的博客"这人身份确认了" → 自动创建/登录账号。用户不用填邮箱密码。
+
+### 6.1 创建 GitHub OAuth App
+
+1. 浏览器登录 GitHub → 右上角头像 → **Settings**
+2. 左侧菜单最下面 → **Developer settings** → **OAuth Apps**
+3. 点 **New OAuth App**，填写：
+
+| 字段 | 填写内容 | 说明 |
+|------|---------|------|
+| Application name | `chiiiiiiing's blog` | 随便起，会显示在 GitHub 授权页面上 |
+| Homepage URL | `http://47.97.204.202` | 你的博客地址 |
+| Authorization callback URL | `http://47.97.204.202/api/auth/github/callback` | **不能错**——GitHub 授权完后跳回这个地址 |
+
+4. 点 **Register application**
+5. 点 **Generate a new client secret** → 记下 **Client ID** 和 **Client Secret**（只显示一次！）
+
+### 6.2 配置服务器环境变量
+
+```bash
+ssh root@47.97.204.202
+
+# 告诉 PM2 这四个环境变量
+pm2 restart blog-xlab-api --update-env \
+  -e GITHUB_CLIENT_ID="你的ClientID" \
+  -e GITHUB_CLIENT_SECRET="你的ClientSecret" \
+  -e GITHUB_CALLBACK_URL="http://47.97.204.202/api/auth/github/callback" \
+  -e FRONTEND_URL="http://47.97.204.202"
+```
+
+> **新人理解**：环境变量就是"藏在服务器上的配置"，代码里通过 `process.env.GITHUB_CLIENT_ID` 读取。不在代码里写死是为了安全——Client Secret 不能公开。
+
+配好后，登录页会自动出现 **「GitHub 登录」** 按钮。没有配置时点击会提示"GitHub OAuth 未配置"，不影响邮箱密码登录。
+
+### 6.3 本地开发时怎么测试
+
+本地开发时 GitHub 回调地址不同，需要在 GitHub OAuth App 设置里**额外添加**一个 callback URL（或临时改成 localhost），然后在 `backend/.env` 里写入：
 
 ```
-GITHUB_CLIENT_ID=你的Client ID
-GITHUB_CLIENT_SECRET=你的Client Secret
+GITHUB_CLIENT_ID=你的ClientID
+GITHUB_CLIENT_SECRET=你的ClientSecret
 FRONTEND_URL=http://localhost:5173
 ```
 
-> 💡 没有配置环境变量时，后端会返回提示信息而不会崩溃，不影响邮箱密码登录。
+重启后端 `npm run dev` 即可。
 
 ---
 
-### 4.6 通过 .md 文件创建文章
+## 7. 自定义配置
 
-在管理后台的「新建文章」页面，可以直接**拖拽或点击上传** `.md` 文件：
+### 7.1 修改友链
 
-- 拖拽一个 `.md` 文件到编辑器的上传区域
-- 或点击上传区域选择文件
-- 系统自动解析文件内容，提取 `# 标题` 作为文章标题，生成对应的 slug
-- 也支持通过 API 上传：`POST /api/posts/upload-md`
+文件：`frontend/src/components/Blogroll.tsx`
 
----
+```tsx
+const LINKS = [
+  { name: "轩神的blog", url: "https://haplotes405.xyz", desc: "" },
+  // 照上面格式加新友链：
+  // { name: "名称", url: "https://...", desc: "简介" },
+];
+```
 
-## 5. API 接口速查
+修改后按第 4 章流程更新部署即可。
 
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| POST | `/api/auth/register` | 无 | 用户注册 |
-| POST | `/api/auth/login` | 无 | 用户登录 |
-| GET | `/api/auth/me` | JWT | 获取当前用户信息 |
-| GET | `/api/posts?page=&pageSize=` | 无 | 文章列表（分页） |
-| GET | `/api/posts/:slug` | 无 | 文章详情（按 slug） |
-| GET | `/api/posts/:id` | 无 | 文章详情（按 ID） |
-| POST | `/api/posts` | ADMIN | 创建文章 |
-| PUT | `/api/posts/:id` | ADMIN | 更新文章 |
-| DELETE | `/api/posts/:id` | ADMIN | 删除文章 |
-| GET | `/api/posts/admin/all` | ADMIN | 全部文章（含草稿） |
-| POST | `/api/posts/:id/comments` | JWT | 发表评论 |
-| DELETE | `/api/comments/:id` | JWT | 删除评论（本人或管理员） |
-| POST | `/api/posts/:id/like` | JWT | 点赞/取消点赞切换 |
-| GET | `/api/posts/:id/like-status` | JWT | 查询当前用户点赞状态 |
-| GET | `/api/auth/github` | 无 | GitHub OAuth 登录跳转 |
-| GET | `/api/auth/github/callback` | 无 | GitHub OAuth 回调处理 |
-| POST | `/api/posts/upload-md` | ADMIN | 上传 .md 文件并解析 |
-| GET | `/api/health` | 无 | 健康检查 |
+### 7.2 修改博客标题和副标题
+
+文件：`frontend/src/pages/Home.tsx` 第 28-32 行附近。
+
+### 7.3 修改网站图标 (favicon)
+
+替换 `frontend/public/favicon.svg`，重新构建前端。
 
 ---
 
-## 6. 设计亮点
+## 8. API 接口速查
 
-- **Optimistic UI 点赞**：点击即响应，失败自动回滚，用户体验丝滑
-- **JWT 双中间件**：`requireAuth`（强制认证）和 `optionalAuth`（可选认证），权限粒度精确
-- **路由守卫**：管理后台由 `AuthContext` 保护，未登录自动跳转
-- **Markdown 双栏编辑器**：管理后台编辑 + 实时预览，所见即所得
-- **级联删除**：删除文章自动清理所有关联评论和点赞
-- **联合唯一索引**：数据库层面保证同一用户对同一文章只能点赞一次
-- **开发/生产环境解耦**：Vite proxy 处理开发环境跨域，Nginx 反代处理生产环境
+| 方法 | 路径 | 需要登录 | 说明 |
+|------|------|---------|------|
+| GET | `/api/health` | 否 | 健康检查 |
+| POST | `/api/auth/register` | 否 | 注册 |
+| POST | `/api/auth/login` | 否 | 登录 |
+| GET | `/api/auth/me` | 是 | 获取当前用户信息 |
+| GET | `/api/auth/github` | 否 | GitHub OAuth 登录跳转 |
+| GET | `/api/auth/github/callback` | 否 | GitHub OAuth 回调 |
+| GET | `/api/posts?page=1&pageSize=10` | 否 | 文章列表（分页） |
+| GET | `/api/posts?search=关键词` | 否 | 搜索文章 |
+| GET | `/api/posts?tag=标签slug` | 否 | 按标签筛选 |
+| GET | `/api/posts/:slug` | 否 | 文章详情 |
+| POST | `/api/posts` | 管理员 | 创建文章 |
+| PUT | `/api/posts/:id` | 管理员 | 更新文章 |
+| DELETE | `/api/posts/:id` | 管理员 | 删除文章 |
+| POST | `/api/posts/upload-md` | 管理员 | 上传 .md 文件 |
+| POST | `/api/posts/:id/comments` | 是 | 发表评论 |
+| DELETE | `/api/comments/:id` | 是 | 删除评论 |
+| POST | `/api/posts/:id/like` | 是 | 点赞/取消 |
+| GET | `/api/tags` | 否 | 获取所有标签 |
+| POST | `/api/tags` | 管理员 | 创建标签 |
+
+---
+
+## 9. 设计亮点
+
+- **Optimistic UI 点赞**：点击立刻显示效果，失败自动回滚——用户感觉不到延迟
+- **JWT 双重中间件**：`requireAuth`（未登录拒绝）和 `optionalAuth`（可选的登录识别），权限粒度精确
+- **Markdown 双栏编辑器**：左边写 Markdown，右边实时预览，所见即所得
+- **article TOC 自动目录**：文章中的标题自动生成侧边栏目录导航，点击可跳转
+- **标签系统**：文章可打标签，首页可按标签筛选
+- **搜索功能**：支持按标题和正文关键词搜索
+- **级联删除**：删除文章自动清理关联的评论和点赞
+- **数据库层面防重复点赞**：联合唯一索引保证同一用户对同一文章只能点赞一次
+- **拖拽上传 .md**：管理后台可直接拖入 Markdown 文件，自动提取标题生成文章
