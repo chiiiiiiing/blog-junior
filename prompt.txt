@@ -1,0 +1,52 @@
+你现在是一个顶尖的全栈开发专家。请在当前目录下，以全自动、免审批的模式，帮我完整搭建一个前后端分离的个人博客系统。
+
+整个系统需要具备现代、极简、高留白的优雅排版风格（类似 Medium 或 Notion 的阅读舒适感），并且需要完美支持 Markdown、代码高亮和 LaTeX 数学公式。
+
+请严格按照以下模块设计、技术要求以及步骤全自动执行：
+
+### 1. 核心四大模块设计 (Prisma Schema)
+请在 backend 的 `schema.prisma` 中显式定义以下四个模型及其实体关系：
+- **User (用户/管理员)**: 
+  - 包含 id, username, passwordHash, email, role (ADMIN/USER), createdAt。
+- **Post (博客文章)**: 
+  - 包含 id, title, slug (唯一索引), content, published (Boolean), createdAt, updatedAt。
+  - 关联：属于一个 User (Author)，拥有多个 Comment，拥有多个 Like。
+- **Comment (评论)**:
+  - 包含 id, content, createdAt。
+  - 关联：属于一个 Post，属于一个 User (Commenter)。支持级联删除。
+- **Like (点赞)**:
+  - 包含 id, createdAt。
+  - 关联：属于一个 Post，属于一个 User。
+  - 联合唯一索引：[userId, postId]，确保一个用户对同一篇文章只能点赞一次。
+
+设计完成后，直接运行 Prisma 迁移命令生成本地 SQLite 数据库文件，并编写 seed 脚本注入至少2个普通用户、1个管理员、3篇带有复杂 Markdown/数学公式的文章以及初始评论和点赞数据。
+
+### 2. 后端 API 接口实现 (Node.js + TS)
+请实现并导出以下端点，妥善配置 CORS 跨域中间件，并使用 JWT 中间件保护所有写操作和用户个人相关的接口：
+- **用户模块**: `/api/auth/register` (注册), `/api/auth/login` (登录), `/api/auth/me` (获取当前登录状态)。
+- **博客模块**: 
+  - `GET /api/posts` (文章列表，支持分页)
+  - `GET /api/posts/:slug` (文章详情，需连带查询出其所属的评论列表和总点赞数)
+  - `POST/PUT/DELETE /api/posts` (只有 ADMIN 角色可以操作)
+- **评论模块**: `POST /api/posts/:id/comments` (必须登录发表), `DELETE /api/comments/:id` (允许评论者本人或 ADMIN 删除)。
+- **点赞模块**: `POST /api/posts/:id/like` (点赞/取消点赞切换), `GET /api/posts/:id/like-status` (检查当前用户是否已点赞)。
+
+### 3. 前端页面与交互开发 (Vite + React + TS + Tailwind)
+在 frontend 目录中编写对应的组件与页面：
+- 配置好 Axios 请求层与拦截器，自动从 localStorage 中提取 JWT Token 放入 Request Header。
+- **首页 (`/`)**: 干净的文章列表展示（含发布时间、分类、标签），支持分页。
+- **文章详情页 (`/post/:slug`)**: 完美渲染 Markdown 正文。必须集成高效的 Markdown 解析器（如 remark/rehype），完美支持代码高亮（如 Shiki 或 Prism）以及 LaTeX 数学公式（如 KaTeX）。
+- **点赞与评论组件**: 点赞按钮具备即时状态切换与数字动画（使用 Optimistic UI 保证流畅）；评论区支持实时提交、局部刷新和属于当前用户的评论删除功能。
+- **管理后台 (`/admin/dashboard` 及其编辑页)**: 受路由守卫保护。ADMIN 登录后可以查看所有文章列表，并能通过支持 Markdown 实时双栏预览的编辑器进行文章的撰写、修改与发布。
+
+### 4. 自动化排错与编译检查
+请在编写完成后自动运行测试或启动开发服务器。如果在类型定义、跨域联调或生产环境打包 (`npm run build`) 时遇到任何错误，请发挥自主排查能力，直接分析并修改源码，直到两端都能无错完美运行。
+
+### 5. 最终交付物：生成完整说明文档
+当所有代码编写完毕、前后端顺利联调且打包无错后，请在项目的根目录下创建一个 `README.md` 文件。该文件必须包含一个完整的说明模版，用优雅清晰的 Markdown 排版详细罗列以下内容：
+1. **项目整体架构与结构目录树**（详细展示 frontend 和 backend 的关键文件分布）。
+2. **核心技术栈选用说明**（包括前后端、数据库、Markdown/LaTeX 渲染等依赖包的用法）。
+3. **开发环境运行指南**（如何安装依赖、跑迁移、启双端）。
+4. **生产环境部署方案**（提供标准的部署步骤，如使用 PM2 部署后端、Vercel/Nginx 部署前端，或提供一份开箱即用的 Docker Compose 配置文件说明）。
+
+请立即开始，全自动完成上述所有工作。

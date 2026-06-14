@@ -1,0 +1,200 @@
+@import "tailwindcss";
+@import "katex/dist/katex.min.css";
+
+/* ===== Tailwind v4 自定义主题 ===== */
+@theme {
+  --font-sans: "Inter", "Noto Sans SC", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+}
+
+/* ===== 基础层：全局排版 ===== */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #fafafa;
+    color: #1a1a1a;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ===== 组件层：文章排版 (Medium/Notion 风格) ===== */
+@layer components {
+  .prose {
+    max-width: 720px;
+    margin: 0 auto;
+    font-size: 1.0625rem;
+    line-height: 1.85;
+    color: #333;
+  }
+
+  .prose h1 {
+    font-size: 2.25rem;
+    font-weight: 700;
+    margin-top: 2.5rem;
+    margin-bottom: 1.25rem;
+    line-height: 1.3;
+    color: #111;
+    letter-spacing: -0.02em;
+  }
+
+  .prose h2 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    line-height: 1.35;
+    color: #1a1a1a;
+  }
+
+  .prose h3 {
+    font-size: 1.375rem;
+    font-weight: 600;
+    margin-top: 1.75rem;
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+    color: #222;
+  }
+
+  .prose p {
+    margin-bottom: 1.5rem;
+  }
+
+  .prose a {
+    color: #2563eb;
+    text-decoration: none;
+    border-bottom: 1px solid #93c5fd;
+    transition: border-color 0.2s;
+  }
+
+  .prose a:hover {
+    border-bottom-color: #2563eb;
+  }
+
+  .prose blockquote {
+    border-left: 3px solid #2563eb;
+    padding: 0.75rem 1.25rem;
+    margin: 1.5rem 0;
+    background: #f0f7ff;
+    border-radius: 0 8px 8px 0;
+    color: #555;
+    font-style: italic;
+  }
+
+  .prose ul,
+  .prose ol {
+    margin-bottom: 1.5rem;
+    padding-left: 1.5rem;
+  }
+
+  .prose li {
+    margin-bottom: 0.5rem;
+  }
+
+  .prose img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin: 1.5rem 0;
+  }
+
+  .prose hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 2.5rem 0;
+  }
+
+  /* 代码块高亮 (Catppuccin Mocha 风格) */
+  .prose pre {
+    background: #1e1e2e;
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    overflow-x: auto;
+    margin: 1.5rem 0;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .prose pre code {
+    font-family: var(--font-mono);
+    color: #cdd6f4;
+    background: none;
+    padding: 0;
+  }
+
+  .prose code {
+    font-family: var(--font-mono);
+    background: #f1f5f9;
+    color: #e11d48;
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-weight: 500;
+  }
+
+  .prose pre code {
+    color: #cdd6f4;
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+    font-weight: 400;
+  }
+
+  /* 表格 */
+  .prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 0.95rem;
+  }
+
+  .prose th,
+  .prose td {
+    border: 1px solid #e5e7eb;
+    padding: 0.75rem 1rem;
+    text-align: left;
+  }
+
+  .prose th {
+    background: #f9fafb;
+    font-weight: 600;
+  }
+}
+
+/* ===== 工具层：KaTeX + 滚动条 ===== */
+@layer utilities {
+  .katex-display {
+    margin: 1.5rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .katex {
+    font-size: 1.1em;
+  }
+}
+
+/* 滚动条美化（非 layer，保持高优先级） */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
