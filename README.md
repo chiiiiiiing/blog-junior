@@ -402,7 +402,7 @@ const LINKS = [
 
 ```bash
 # 将下面地址换成你自己的服务器 IP
-ssh root@你的服务器IP
+ssh root@47.97.204.202
 ```
 
 #### A.2 安装 Node.js 环境
@@ -443,7 +443,7 @@ cd /home/deploy
 git clone https://github.com/你的用户名/blog-XLab.git
 
 # 方式二：手动上传（用 scp 或 SFTP 工具）
-# scp -r ./blog-XLab root@你的IP:/home/deploy/
+# scp -r ./blog-XLab root@47.97.204.202:/home/deploy/
 
 cd blog-XLab
 ```
@@ -490,12 +490,12 @@ ls dist/
 sudo nano /etc/nginx/sites-available/blog-xlab
 ```
 
-写入以下内容（将 `你的域名.com` 替换为实际域名，如果没有域名暂时用服务器 IP）：
+写入以下内容（有域名的话把 `47.97.204.202` 换成你的域名）：
 
 ```nginx
 server {
     listen 80;
-    server_name 你的域名.com;   # 没有域名就填服务器公网 IP
+    server_name 47.97.204.202;   # 有域名就换成你的域名
 
     # ========== 前端静态文件 ==========
     root /home/deploy/blog-XLab/frontend/dist;
@@ -571,7 +571,7 @@ sudo ufw enable
 sudo apt-get install -y certbot python3-certbot-nginx
 
 # 自动获取证书并配置 Nginx
-sudo certbot --nginx -d 你的域名.com
+sudo certbot --nginx -d 47.97.204.202
 
 # 按提示操作：输入邮箱 → 同意条款 → 选择是否重定向 HTTP 到 HTTPS（选 2）
 ```
@@ -631,57 +631,111 @@ crontab -e
 
 #### 更新部署流程
 
-每次修改代码后，按以下步骤更新线上环境。
+每次修改代码后，需要把变更同步到服务器并重新构建。以下是完整详细流程。
 
-**本地 → 服务器同步代码：**
+---
+
+**第 1 步：本地提交代码**
 
 ```bash
-# 方式一：通过 Git 同步（推荐）
-# 先在本地 push 到 GitHub，然后 SSH 到服务器拉取
-
-# 方式二：scp 直接上传修改的文件
-scp -r ./backend/src root@你的IP:/home/deploy/blog-XLab/backend/
-scp -r ./frontend/src root@你的IP:/home/deploy/blog-XLab/frontend/
+# 在你自己的电脑上
+cd blog-XLab
+git add .
+git commit -m "描述你的改动"
+git push origin main
 ```
 
-**服务器端更新构建（SSH 到服务器后执行）：**
+---
+
+**第 2 步：SSH 登录服务器拉取代码**
 
 ```bash
-# === 完整更新流程 ===
+# SSH 到服务器
+ssh root@47.97.204.202
 
-# 1. 拉取最新代码（如果用 Git）
-cd /home/deploy/blog-XLab
-git pull
+# 进入项目目录
+cd /home/deploy/blog-junior
 
-# 2. 重新构建后端
-cd backend
-npm install               # 如果 package.json 有变化
-npx prisma generate       # 如果 prisma/schema.prisma 有变化
-npx prisma db push        # 如果 Schema 有变化（不会丢数据）
-npm run build
-pm2 restart blog-xlab-api
+# 拉取最新代码
+git pull origin main
+```
 
-# 3. 重新构建前端
-cd ../frontend
-npm install               # 如果 package.json 有变化
-npm run build
-# Nginx 不需要重启（静态文件直接覆盖了 dist 目录）
+> 如果没有用 Git，用 scp 上传：
+> ```bash
+> # 在本地执行（不是服务器上）
+> scp -r ./backend/src root@47.97.204.202:/home/deploy/blog-junior/backend/
+> scp -r ./frontend/src root@47.97.204.202:/home/deploy/blog-junior/frontend/
+> ```
 
-# 4. 验证
+---
+
+**第 3 步：按改动类型执行对应命令**
+
+| 你改了什么 | 在服务器上执行什么 |
+|-----------|-------------------|
+| **只改了前端代码**<br>（页面样式、组件逻辑） | `cd /home/deploy/blog-junior/frontend`<br>`npm install`（如果 package.json 没变可跳过）<br>`npm run build`<br>✅ 完成，无需重启任何服务 |
+| **只改了后端代码**<br>（路由、API 逻辑） | `cd /home/deploy/blog-junior/backend`<br>`npm install`（如果 package.json 没变可跳过）<br>`npm run build`<br>`pm2 restart blog-xlab-api`<br>✅ 完成 |
+| **改了数据库结构**<br>（schema.prisma） | `cd /home/deploy/blog-junior/backend`<br>`npx prisma generate`<br>`npx prisma db push`<br>`npm run build`<br>`pm2 restart blog-xlab-api`<br>✅ 完成 |
+| **前后端都改了** | 按上面前端 + 后端步骤都执行一遍 |
+| **只改了 Markdown 文章**<br>（通过后台编辑器） | ✅ 无需任何操作，数据已存数据库 |
+
+---
+
+**第 4 步：验证更新是否生效**
+
+```bash
+# 验证后端
 curl http://localhost:3001/api/health
 # → {"status":"ok","timestamp":"..."}
+
+# 验证前端（看首页是否返回正常 HTML）
+curl -s -H "Host: 47.97.204.202" http://127.0.0.1/ | head -5
+# → 应包含 <!doctype html> 和博客标题
+
+# 验证登录 API（确认数据库正常）
+curl -s -X POST http://127.0.0.1/api/auth/login \
+  -H "Content-Type: application/json" \
+  -H "Host: 47.97.204.202" \
+  -d '{"email":"admin@blog-xlab.com","password":"admin123"}'
+# → 应返回 {"message":"登录成功","token":"...","user":{...}}
 ```
 
-**常用更新场景速查：**
+---
 
-| 改动内容 | 需要执行的命令 |
-|---------|---------------|
-| 只改了前端页面/样式 | `cd frontend && npm run build` |
-| 只改后端路由/逻辑 | `cd backend && npm run build && pm2 restart blog-xlab-api` |
-| 改了数据库 Schema | `cd backend && npx prisma generate && npx prisma db push && npm run build && pm2 restart blog-xlab-api` |
-| 新增了 npm 依赖 | 在对应目录执行 `npm install` 后再 build |
+**一键更新脚本（推荐）**
 
-> 💡 **提示**：可以将上面的更新流程写成一个 `update.sh` 脚本放在 `/home/deploy/` 下，以后每次更新只需执行 `bash /home/deploy/update.sh`。
+在服务器上创建 `/home/deploy/update.sh`：
+
+```bash
+#!/bin/bash
+set -e
+cd /home/deploy/blog-junior
+echo "📦 拉取最新代码..."
+git pull origin main
+echo "🔨 构建后端..."
+cd backend
+npm install --silent
+npx prisma generate
+npx prisma db push
+npm run build
+pm2 restart blog-xlab-api
+echo "🎨 构建前端..."
+cd ../frontend
+npm install --silent
+npm run build
+echo "✅ 更新完成！"
+curl -s http://localhost:3001/api/health
+```
+
+以后每次更新只需：
+
+```bash
+bash /home/deploy/update.sh
+```
+
+---
+
+
 
 
 
