@@ -394,6 +394,8 @@ ssh -T git@github.com
 4. 点 **Register application**
 5. 点 **Generate a new client secret** → 记下 **Client ID** 和 **Client Secret**（只显示一次！）
 
+00203415f0d96ed9b0d29f4aaaf44ae6ee47757f
+
 ### 6.2 配置服务器环境变量
 
 ```bash
@@ -401,8 +403,8 @@ ssh root@47.97.204.202
 
 # 告诉 PM2 这四个环境变量
 pm2 restart blog-xlab-api --update-env \
-  -e GITHUB_CLIENT_ID="你的ClientID" \
-  -e GITHUB_CLIENT_SECRET="你的ClientSecret" \
+  -e GITHUB_CLIENT_ID="Ov23ctx3gXmtdZGFicPM" \
+  -e GITHUB_CLIENT_SECRET="00203415f0d96ed9b0d29f4aaaf44ae6ee47757f" \
   -e GITHUB_CALLBACK_URL="http://47.97.204.202/api/auth/github/callback" \
   -e FRONTEND_URL="http://47.97.204.202"
 ```

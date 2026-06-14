@@ -11,14 +11,15 @@ const GITHUB_CALLBACK_URL = process.env.GITHUB_CALLBACK_URL || "http://localhost
 
 // GET /api/auth/github — 跳转到 GitHub 授权页
 router.get("/github", (_req: Request, res: Response) => {
-  if (!GITHUB_CLIENT_ID) {
+  const clientId = process.env.GITHUB_CLIENT_ID || "";
+  if (!clientId) {
     res.status(500).json({ error: "GitHub OAuth 未配置，请设置 GITHUB_CLIENT_ID 环境变量" });
     return;
   }
 
   const params = new URLSearchParams({
-    client_id: GITHUB_CLIENT_ID,
-    redirect_uri: GITHUB_CALLBACK_URL,
+    client_id: clientId,
+    redirect_uri: process.env.GITHUB_CALLBACK_URL || "",
     scope: "user:email",
     state: Math.random().toString(36).substring(2),
   });
@@ -44,10 +45,10 @@ router.get("/github/callback", async (req: Request, res: Response) => {
         Accept: "application/json",
       },
       body: JSON.stringify({
-        client_id: GITHUB_CLIENT_ID,
-        client_secret: GITHUB_CLIENT_SECRET,
+        client_id: process.env.GITHUB_CLIENT_ID || "",
+        client_secret: process.env.GITHUB_CLIENT_SECRET || "",
         code,
-        redirect_uri: GITHUB_CALLBACK_URL,
+        redirect_uri: process.env.GITHUB_CALLBACK_URL || "",
       }),
     });
 
