@@ -631,109 +631,130 @@ crontab -e
 
 #### 更新部署流程
 
-每次修改代码后，需要把变更同步到服务器并重新构建。以下是完整详细流程。
+每次修改代码后，三步完成更新：本地 push → 服务器 pull → 重建构建。
 
 ---
 
-**第 1 步：本地提交代码**
+**流程图：**
 
-```bash
-# 在你自己的电脑上
-cd blog-XLab
+```
+你的电脑                GitHub              服务器 (47.97.204.202)
+  │                      │                      │
+  ├─ git push ──────────►│                      │
+  │                      ├─ git pull ──────────►│
+  │                      │                      ├─ npm run build
+  │                      │                      ├─ pm2 restart
+  │                      │                      └─ 浏览器刷新即生效
+```
+
+---
+
+**第 1 步：本地提交代码（你的电脑上）**
+
+```powershell
+# 打开 PowerShell，cd 到项目目录
+cd D:\桌面\blog-XLab
+
+# 把所有改动的文件加入提交
 git add .
+
+# 提交（引号里写你这次改了什么）
 git commit -m "描述你的改动"
+
+# 推送到 GitHub
 git push origin main
 ```
 
+看到 `Writing objects: 100%` 就是推送成功。
+
+> 如果你的 GitHub 用的是 SSH 方式但之前配了 HTTPS，先改成 SSH：
+> ```bash
+> git remote set-url origin git@github.com:chiiiiiiing/blog-junior.git
+> ```
+> 之后 `git push` 就不用输密码了。
+
 ---
 
-**第 2 步：SSH 登录服务器拉取代码**
+**第 2 步：服务器拉取代码（SSH 到服务器）**
 
 ```bash
-# SSH 到服务器
+# 先 SSH 到服务器
 ssh root@47.97.204.202
 
-# 进入项目目录
+# 进入项目目录，拉取最新代码
 cd /home/deploy/blog-junior
-
-# 拉取最新代码
 git pull origin main
 ```
 
-> 如果没有用 Git，用 scp 上传：
+看到类似 `630bf5b..a1b2c3d  main -> origin/main` 说明有新代码被拉下来了。
+
+> 如果显示 `Already up to date`，说明第 1 步的 `git push` 没成功，回去检查。
+
+---
+
+**第 3 步：重建构建（在服务器上）**
+
+根据你改了什么，选择对应的命令：
+
+| 你改了什么 | 执行命令 |
+|-----------|---------|
+| **只改前端**（页面、样式、组件） | `cd /home/deploy/blog-junior/frontend && npm install --silent && npm run build` |
+| **只改后端**（路由、API） | `cd /home/deploy/blog-junior/backend && npm install --silent && npm run build && pm2 restart blog-xlab-api` |
+| **改了数据库**（schema.prisma） | `cd /home/deploy/blog-junior/backend && npx prisma generate && npx prisma db push && npm run build && pm2 restart blog-xlab-api` |
+| **前后端都改了** | 先执行后端那一行，再执行前端那一行 |
+
+> 实际使用时，**不确定改了什么就直接全量重建**，跑下面这一条：
 > ```bash
-> # 在本地执行（不是服务器上）
-> scp -r ./backend/src root@47.97.204.202:/home/deploy/blog-junior/backend/
-> scp -r ./frontend/src root@47.97.204.202:/home/deploy/blog-junior/frontend/
+> cd /home/deploy/blog-junior/frontend && npm install --silent && npm run build && cd ../backend && npm install --silent && npm run build && pm2 restart blog-xlab-api
 > ```
 
 ---
 
-**第 3 步：按改动类型执行对应命令**
-
-| 你改了什么 | 在服务器上执行什么 |
-|-----------|-------------------|
-| **只改了前端代码**<br>（页面样式、组件逻辑） | `cd /home/deploy/blog-junior/frontend`<br>`npm install`（如果 package.json 没变可跳过）<br>`npm run build`<br>✅ 完成，无需重启任何服务 |
-| **只改了后端代码**<br>（路由、API 逻辑） | `cd /home/deploy/blog-junior/backend`<br>`npm install`（如果 package.json 没变可跳过）<br>`npm run build`<br>`pm2 restart blog-xlab-api`<br>✅ 完成 |
-| **改了数据库结构**<br>（schema.prisma） | `cd /home/deploy/blog-junior/backend`<br>`npx prisma generate`<br>`npx prisma db push`<br>`npm run build`<br>`pm2 restart blog-xlab-api`<br>✅ 完成 |
-| **前后端都改了** | 按上面前端 + 后端步骤都执行一遍 |
-| **只改了 Markdown 文章**<br>（通过后台编辑器） | ✅ 无需任何操作，数据已存数据库 |
-
----
-
-**第 4 步：验证更新是否生效**
+**第 4 步：验证**
 
 ```bash
-# 验证后端
+# 后端是否正常
 curl http://localhost:3001/api/health
 # → {"status":"ok","timestamp":"..."}
 
-# 验证前端（看首页是否返回正常 HTML）
-curl -s -H "Host: 47.97.204.202" http://127.0.0.1/ | head -5
-# → 应包含 <!doctype html> 和博客标题
+# 首页是否返回最新内容
+curl -s http://47.97.204.202/ | grep "<title>"
+# → <title>chiiiiiiing's blog junior</title>
 
-# 验证登录 API（确认数据库正常）
-curl -s -X POST http://127.0.0.1/api/auth/login \
+# 登录是否正常
+curl -s -X POST http://47.97.204.202/api/auth/login \
   -H "Content-Type: application/json" \
-  -H "Host: 47.97.204.202" \
   -d '{"email":"admin@blog-xlab.com","password":"admin123"}'
-# → 应返回 {"message":"登录成功","token":"...","user":{...}}
+# → {"message":"登录成功",...}
 ```
+
+浏览器访问 `http://47.97.204.202`，**Ctrl+F5 强制刷新**。
 
 ---
 
-**一键更新脚本（推荐）**
+**常见故障速查：**
 
-在服务器上创建 `/home/deploy/update.sh`：
-
-```bash
-#!/bin/bash
-set -e
-cd /home/deploy/blog-junior
-echo "📦 拉取最新代码..."
-git pull origin main
-echo "🔨 构建后端..."
-cd backend
-npm install --silent
-npx prisma generate
-npx prisma db push
-npm run build
-pm2 restart blog-xlab-api
-echo "🎨 构建前端..."
-cd ../frontend
-npm install --silent
-npm run build
-echo "✅ 更新完成！"
-curl -s http://localhost:3001/api/health
-```
-
-以后每次更新只需：
-
-```bash
-bash /home/deploy/update.sh
-```
+| 现象 | 原因 | 解决 |
+|------|------|------|
+| `git push` 报 `Permission denied` | SSH Key 没配 | `ssh-keygen -t ed25519` → 把公钥加到 GitHub Settings → SSH Keys |
+| `git pull` 报 `Connection timed out` | 服务器连不上 GitHub | 改用 scp 上传（见下方备选方案） |
+| `Already up to date` 但代码确实改了 | 本地忘了 `git push` | 回第 1 步重新 push |
+| `npm run build` 报错 | 代码有编译错误 | 看终端报错信息，修复后重新 push |
+| 构建成功但浏览器没变化 | 浏览器缓存 | Ctrl+F5 强制刷新 |
+| 页面 404 | 前端构建未执行或失败 | 重新执行第 3 步前端命令 |
 
 ---
+
+**备选方案：不用 GitHub，用 scp 直接传文件**
+
+如果服务器连不上 GitHub，在本地 PowerShell 执行：
+
+```powershell
+# 上传并重建（一条命令）
+scp -r D:\桌面\blog-XLab\frontend\src root@47.97.204.202:/home/deploy/blog-junior/frontend/ ; scp -r D:\桌面\blog-XLab\backend\src root@47.97.204.202:/home/deploy/blog-junior/backend/ ; ssh root@47.97.204.202 "cd /home/deploy/blog-junior/frontend && npm run build && cd ../backend && npm run build && pm2 restart blog-xlab-api"
+```
+
+
 
 
 
