@@ -1,6 +1,5 @@
 const LINKS = [
-  { name: "轩神的blog", url: "https://haplotes405.xyz", desc: "" },
-  { name: "React", url: "https://react.dev", desc: "用于构建用户界面的 JavaScript 库" },
+  { name: "轩神的blog", url: "https://haplotes405.xyz", desc: "宇轩gg太强啦" },
   // 添加或修改友链：按上面格式新增对象即可
 ];
 
